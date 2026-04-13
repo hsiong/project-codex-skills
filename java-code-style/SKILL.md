@@ -1,0 +1,107 @@
+---
+name: java-code-style
+description: 生成、补全、重写或评审 Java 相关代码时使用。适用于生成 controller、service、DTO、Entity、Pojo、VO、方法实现或接口定义等场景，确保输出遵循统一的 Java 代码规范：尽量避免重复代码但不过度拆分，方法注释结合 `@param` 与 `@return`，关键代码补充注释，接口层只负责调用、具体业务逻辑放在 service 中，非数据库 CRUD 场景优先直接使用 class service，并按约定补充 `@Schema`、`@Data`、`@Operation`、`Result` 返回以及请求参数校验注解。
+---
+
+# Java Code Style
+
+按下面规则生成 Java 代码，并优先兼容用户当前项目已有风格；如果项目现有写法与本 skill 不冲突，保持一致。
+
+## 核心规范
+
+- 尽量避免重复代码，但不要为了“消除一点点重复”强行拆出额外私有方法、工具类或抽象层。
+- 没有必要单独提炼的方法，直接保留在一个完整的大方法中，优先保证调用链直观。
+- 关键代码必须加注释，重点解释业务判断、分支原因、边界处理和数据转换，不写无意义的逐行注释。
+- 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路。
+
+## 方法注释
+
+- 为公开方法和有业务含义的方法补充 JavaDoc。
+- 有入参时使用 `@param` 描述参数含义。
+- 有返回值时使用 `@return` 描述返回结果。
+- `void` 方法不要硬写 `@return`。
+- 注释直接说明业务目的和入参与返回关系，不写空泛表述。
+
+示例：
+
+```java
+/**
+ * 根据用户ID查询有效订单信息。
+ *
+ * @param userId 用户ID
+ * @param includeClosed 是否包含已关闭订单
+ * @return 当前用户可见的订单列表
+ */
+public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
+    // 先查询原始订单数据，后续统一做状态过滤
+    List<Order> orders = orderMapper.selectByUserId(userId);
+    if (!includeClosed) {
+        orders = orders.stream()
+                .filter(order -> !Objects.equals(order.getStatus(), OrderStatus.CLOSED))
+                .toList();
+    }
+    return buildOrderVOList(orders);
+}
+```
+
+## 分层约束
+
+- 接口层或 controller 层只负责接收参数、调用 service、返回结果。
+- 具体业务逻辑、业务判断、数据编排、状态处理放在 service 或 service impl 中。
+- 不是数据库 CRUD 的代码，无需使用 service impl，直接用 class service 即可。
+- 只有在项目本身明确存在数据库 CRUD 分层约定，或者用户明确要求时，才补 service impl。
+- 不要把核心业务逻辑直接写在 controller、feign 接口、RPC 接口定义或 API 声明层。
+- 如果同时生成 controller 和 service，先保证接口签名清晰，再把完整逻辑落到 service。
+
+## 实体与请求对象
+
+- DTO、Entity、Pojo、VO 等实体类字段需要使用 `@Schema` 描述字段含义。
+- 实体类本身优先使用 `@Data`。
+- request DTO 中必填字段使用 `@NotBlank` 或 `@NotNull`。
+- 必填校验注解必须补充 `message`，格式优先使用“xxx不能为空”。
+- 字符串类型必填优先使用 `@NotBlank`；非字符串对象、数字或集合是否为空校验按类型选择 `@NotNull`。
+
+示例：
+
+```java
+@Data
+@Schema(description = "创建订单请求")
+public class CreateOrderRequestDTO {
+
+    @Schema(description = "用户ID")
+    @NotNull(message = "用户ID不能为空")
+    private Long userId;
+
+    @Schema(description = "订单标题")
+    @NotBlank(message = "订单标题不能为空")
+    private String title;
+}
+```
+
+## Controller 约束
+
+- Controller 方法使用 `@Operation` 描述接口用途。
+- 优先使用 Post 请求，除非用户明确要求或场景天然更适合 Get。
+- 查询接口方法名以 `getXXX` 形式命名。
+- Controller 返回统一使用 `Result` 类。
+- Controller 内部只做收参、基础校验、调用 service、封装 `Result`，不要下沉业务实现。
+
+示例：
+
+```java
+@PostMapping("/getOrderDetail")
+@Operation(summary = "查询订单详情")
+public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailRequestDTO requestDTO) {
+    return Result.success(orderService.getOrderDetail(requestDTO));
+}
+```
+
+## 生成代码时的执行方式
+
+- 生成 controller 时，只保留参数接收、基础校验、调用 service、封装返回。
+- 生成 service 方法时，把主要逻辑写完整，不要只留“TODO”或空壳实现。
+- 生成接口定义时，保证命名、入参、返回值和实现类保持一致。
+- 生成注释时，优先解释“为什么这样处理”，不是重复代码字面意思。
+- 如需在“减少重复”与“保持直观”之间取舍，优先选择更直观、改动更小的实现。
+- 生成 request DTO 时，同步补齐 `@Schema`、必填校验注解和 `message`。
+- 生成 controller 时，同步检查是否满足 `@Operation`、Post 优先、查询接口 `getXXX`、`Result` 返回这几项约束。
