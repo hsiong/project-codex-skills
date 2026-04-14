@@ -1,0 +1,7 @@
+interface:
+  display_name: "Java Feign集成"
+  short_description: "按现有 Decoder、Interceptor 和 DTO 规范接入 Java Feign 接口"
+  default_prompt: "Use $java-feign-integration when integrating external or internal APIs in Java code, following existing Feign decoder/interceptor patterns and the java-code-style skill."
+
+policy:
+  allow_implicit_invocation: true
