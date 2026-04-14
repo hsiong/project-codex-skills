@@ -1,6 +1,6 @@
 ---
 name: java-feign-integration
-description: "当用户要在 Java 项目中对接第三方接口、内部 RPC 或 HTTP API，并且应沿用现有 Feign 模式时使用，例如“接一个 Feign 接口”或“补 decoder/interceptor”。它负责基于项目已有的 DTO、decoder、interceptor 和 service 规范补齐接入链路；不用于非 Java 场景、普通代码风格调整或整条链路重构。成功标准是 Feign 接入与项目既有实现保持一致，且业务逻辑留在 service。"
+description: "当用户要在 Java 项目中按现有 Feign 模式对接接口时触发，例如“接一个 Feign 接口”“补 decoder”“补 interceptor”。它负责基于项目已有 DTO、decoder、interceptor 和 service 规范补齐接入链路；不用于非 Java 场景、普通代码风格调整或整条链路重构。"
 ---
 
 # Java Feign Integration
