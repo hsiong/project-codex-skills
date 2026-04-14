@@ -1,6 +1,6 @@
 ---
 name: java-code-style
-description: 生成、补全、重写或评审 Java 相关代码时使用。适用于生成 controller、service、DTO、Entity、Pojo、VO、方法实现或接口定义等场景，确保输出遵循统一的 Java 代码规范：尽量避免重复代码但不过度拆分，方法注释结合 `@param` 与 `@return`，关键代码补充注释，接口层只负责调用、具体业务逻辑放在 service 中，非数据库 CRUD 场景优先直接使用 class service，并按约定补充 `@Schema`、`@Data`、`@Operation`、`Result` 返回以及请求参数校验注解。
+description: 生成、补全、重写或评审 Java 相关代码时使用。适用于生成 controller、service、DTO、Entity、Pojo、VO、方法实现或接口定义等场景，确保输出遵循统一的 Java 代码规范：尽量避免重复代码但不过度拆分，方法注释结合 `@param` 与 `@return`，关键代码补充注释，接口层只负责调用、具体业务逻辑放在 service 中，非数据库 CRUD 场景优先直接使用 class service，并按约定补充 `@Schema`、`@Data`、`@Operation`、`Result` 返回以及请求参数校验注解；如需新增配置项，默认加入 `application.yml`，具体 dev 值不得通过访问 `application-*.yml` 获取，而是以 terminal 日志打印新增配置项。
 ---
 
 # Java Code Style
@@ -95,6 +95,14 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
     return Result.success(orderService.getOrderDetail(requestDTO));
 }
 ```
+
+## 配置项约束
+
+- 如需新增配置项，默认把配置项加入 `application.yml`。
+- 具体环境值以 `-dev` 为参考目标，但禁止访问任何 `application-*.yml` 文件，包括 `application-dev.yml`。
+- 不要读取、比对或修改 `application-*.yml` 来补 dev 配置。
+- 需要补充的 dev 配置项，直接在 terminal 日志中打印新增 key 和建议值，方便用户自行落到对应的 `-dev` 文件。
+- 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
 
 ## 生成代码时的执行方式
 

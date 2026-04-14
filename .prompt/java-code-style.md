@@ -12,3 +12,4 @@
    - 查询接口以 getXXX 命名，
    - 返回使用 Result 类
 8. requestDTO 必填的值，应使用 @NotBlank 或者 @NotNull,  并填入 message xxx不能为空
+9. 如需新增配置项，加入到 application.yml 中，具体值引用 -dev；但是禁止访问 application-*.yml；需要补到 -dev 的新增配置项以 terminal 日志打印出来
