@@ -98,10 +98,10 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 
 ## 配置项约束
 
+- 注意，代码中使用的配置项要与 `application.yml` 配置一致, 如 `${xxx}`, `@ConfigurationProperties` 等
 - 如需新增配置项，默认把配置项加入 `application.yml`。
 - 具体环境值以 `-dev` 为参考目标，但禁止访问任何 `application-*.yml` 文件，包括 `application-dev.yml`。
-- 不要读取、比对或修改 `application-*.yml` 来补 dev 配置。
-- 需要补充的 dev 配置项，直接在 terminal 日志中打印新增 key 和建议值，方便用户自行落到对应的 `-dev` 文件。
+- 不要读取、比对或修改 `application-*.yml` 来补 dev 配置。 需要补充的 dev 配置项，直接在 terminal 日志中打印新增 key 和建议值，方便用户自行落到对应的 `-dev` 文件。
 - 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
 
 ## 生成代码时的执行方式
