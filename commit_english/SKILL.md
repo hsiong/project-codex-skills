@@ -1,31 +1,31 @@
 ---
 name: "commit_english"
-description: "Use when the user says \"英文 commit\", \"english commit\", \"commit\", or similar. This skill makes multiple commits in the current Git workspace using only Git-known files: commit messages must be in English, follow GitHub/Conventional Commits style, group changes by complete functional flow rather than by code module, and be committed from largest change set to smallest. Never access untracked files, never read or commit `*/application.yml`, `*/application-*.yml`, `.fastRequest/*`, `.mvn/*`, `.idea/*`, `config/.env.*`, or anything ignored by `.gitignore`, never modify user code, and always summarize the total changed lines at the end."
+description: "Use when the user says \"English commit\", \"english commit\", \"commit\", or similar. This skill completes multiple commits in the current Git workspace using only Git-known files: commit messages must be in English, follow GitHub/Conventional Commits style, be grouped by complete functional flow rather than by code module, and be committed from the largest change set to the smallest. It is strictly forbidden to access files not added to Git, and strictly forbidden to read or commit `*/application.yml`, `*/application-*.yml`, `.fastRequest/*`, `.mvn/*`, `.idea/*`, `config/.env.*`, or anything mentioned in `.gitignore`; it is also strictly forbidden to modify user code without permission; the total changed lines must be summarized after completion."
 ---
 
 # Commit
 
-## When to Use
+## Applicable Scenarios
 
 - The user wants you to commit the current workspace directly.
-- The user wants you to split the work into multiple commits by feature.
-- The user wants English commit messages and expects you to run the commits.
+- The user wants you to split the work into multiple commits by function.
+- The user wants you to generate English commit messages and execute the commits.
 
 ## Hard Constraints
 
-- Only perform commit-related actions. Do not modify user code, clean up files, or fix unrelated issues.
-- Only inspect Git-known paths: tracked changes, staged new files, and staged deletions. Never access truly untracked files.
-- Never use `git add .`, `git add -A`, `git commit -a`, or any command that broadens scope implicitly.
-- Never read or commit the following:
+- Only perform commit-related operations. Do not modify user code, fix issues on the side, or clean up formatting.
+- Only inspect Git-known paths: tracked changes, staged new files, and staged deletions. Truly untracked files must never be accessed.
+- Never use commands such as `git add .`, `git add -A`, or `git commit -a` that would broaden the scope.
+- Never read or commit the following content:
   - `*/application.yml`
   - `*/application-*.yml`
   - `.fastRequest/*`
   - `.mvn/*`
   - `.idea/*`
   - `config/.env.*`
-  - Anything matched by `.gitignore`
-- Read `.gitignore`. Do not access or commit anything ignored there.
-- Never access files that are not already under Git management.
+  - Anything mentioned in `.gitignore`
+- Read `.gitignore`. Do not access or commit anything mentioned in `.gitignore`.
+- Files that have not been added to Git management must never be accessed.
 
 ## Safe Workflow
 
@@ -41,7 +41,7 @@ BASE_HEAD=$(git rev-parse HEAD)
 git status --short --untracked-files=no
 ```
 
-3. Every `diff`, `stat`, or `name-only` command must include exclusion rules. Reuse this pathspec:
+3. All `diff`, `stat`, and `name-only` commands must include exclusion rules to avoid restricted paths. Reuse the following pathspec:
 
 ```bash
 -- . \
@@ -55,19 +55,19 @@ git status --short --untracked-files=no
 
 ## Grouping Rules
 
-- Use a complete functional flow as one commit unit, not directory structure, layered modules, or technical components.
-- If one business feature touches `controller`, `service`, `impl`, `feign`, `dto`, tests, and docs, prefer one commit for that full flow.
-- If multiple features exist, commit them from the largest change set to the smallest.
-- Estimate change size by total added and deleted lines in each feature group, using `git diff --numstat` and `git diff --stat` first.
-- Docs, style, build, config, and tests can be separate commits only when they form an independent functional flow.
+- Use a complete functional flow as one commit unit. Do not split by code directory, layered module, or technical component.
+- If the same business function involves `controller`, `service`, `impl`, `feign`, `dto`, tests, and documentation, prefer grouping them into the same commit.
+- When multiple functions coexist, commit them in order from the largest change set to the smallest.
+- Estimate change size by the total added and deleted lines in each functional group, prioritizing `git diff --numstat` and `git diff --stat`.
+- Documentation, style, build, config, test, and similar changes may be committed separately only when they form an independent functional flow.
 
-## Commit Message Rules
+## Commit Message Requirements
 
 - Use English only.
 - Follow common GitHub commit conventions. Prefer: `feat`, `fix`, `docs`, `refactor`, `style`, `test`, `chore`, `build`, `ci`, `perf`.
-- Keep the title short, direct, and action-oriented. Do not include file names or numeric prefixes.
-- If a one-line subject is not enough, add a short body with hyphen bullets. Do not number the bullets.
-- Do not split the message into low-level technical layers. Describe the complete business action first.
+- Keep the title as short, direct, and actionable as possible. Do not include file names and do not include sequence numbers.
+- If a single-line title is not enough to express the change, you may add a short body; use hyphen bullets in the body and do not use numbering.
+- Do not split low-level technical layers into multiple points. Prefer describing the complete business action.
 
 Examples:
 
@@ -78,16 +78,16 @@ feat: add internal app access token support
 ```text
 docs: document the automated group creation flow
 
-- add the required group-management permission notes
-- add the phone-to-userId lookup caveats
-- add the group creation and bot binding steps
+- add the group management permission application notes
+- add the phone number to userId lookup caveats
+- add the group creation and bot binding flow
 ```
 
 ## Output Requirements
 
-- Before committing, list the planned functional groups from largest to smallest. Do not include file names and do not number them.
-- After committing, list the actual commit results in commit order, one commit message per line.
-- End with a total line summary. Preferred format:
+- Before committing: list the planned functional groups from the largest change set to the smallest. Do not include file names and do not add numbering.
+- After committing: provide the actual commit results and list each commit message in commit order.
+- Finally summarize the total changed lines. Recommended format:
 
 ```text
 Total changed lines: 123 (+100 / -23)
@@ -95,6 +95,6 @@ Total changed lines: 123 (+100 / -23)
 
 ## Failure Handling
 
-- If untracked files might affect the judgment, ignore them and do not inspect their contents.
-- If restricted paths contain changes, state clearly that those changes were excluded and not committed.
-- If the commits cannot be split safely without violating the constraints, stop and explain why.
+- If untracked files may affect the judgment, ignore them and do not access their contents.
+- If there are changes under restricted paths, clearly state that those changes were excluded and were not included in the commits.
+- If it is impossible to split commits safely without violating the constraints, stop execution and explain the reason to the user.

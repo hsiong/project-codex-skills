@@ -1,7 +1,7 @@
-Use this skill when the user asks for an English commit, says "english commit", "commit", or similar.
+Use this skill when the user says "English commit", "english commit", "commit", or similar.
 
-1. Inspect only Git-known files.
-2. Split changes by complete functional flow.
-3. Write all commit messages in English using conventional commit style.
-4. Do not access ignored or restricted files.
-5. Summarize the total changed lines after all commits.
+1. Complete multiple commits in the current Git workspace using only Git-known files.
+2. All commit messages must be in English and follow GitHub/Conventional Commits style.
+3. Group changes by complete functional flow rather than by code module, and commit from the largest change set to the smallest.
+4. Never access files that are not added to Git, and never read or commit restricted paths or anything mentioned in `.gitignore`.
+5. Never modify user code without permission, and summarize the total changed lines after completion.

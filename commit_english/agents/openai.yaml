@@ -1,6 +1,6 @@
 interface:
-  display_name: "Commit Splitter"
-  short_description: "Split workspace changes into safe English commits"
+  display_name: "English Commit Splitter"
+  short_description: "Split English Git commits by functional flow"
   default_prompt: "Use $commit_english to inspect the current workspace, split changes into multiple safe commits, and write concise English conventional commit messages."
 
 policy:
