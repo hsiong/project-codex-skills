@@ -1,6 +1,6 @@
 ---
 name: commit_chinese
-description: 当用户说“日常commit”“中文commit”或类似指令时使用。该技能负责在当前 Git 工作区内，仅基于 Git 已知文件完成多次提交：提交信息必须是中文、遵循 GitHub/Conventional Commits 风格、按完整功能链路分组而不是按代码模块分组，并按改动量从大到小排序。严禁访问未加入 Git 的文件，严禁读取或提交 `*/application.yml`、`*/application-*.yml`、`.fastRequest/*`、`.mvn/*`、`.idea/*`、`config/.env.*` 以及 `.gitignore` 涉及的内容；严禁擅自修改用户代码；完成后必须汇总总改动行数。
+description: "当用户要按功能链路执行中文 Git 提交时使用，例如“中文commit”“日常commit”“帮我拆分提交”。它只处理当前工作区内允许访问的 Git 已知改动，产出并执行多条中文 Conventional Commit；不用于修改代码、处理未跟踪文件或提交受限路径。成功标准是安全完成拆分提交，并汇总 commit 结果与总改动行数。"
 ---
 
 # Commit
@@ -55,7 +55,7 @@ git status --short --untracked-files=no
 
 ## 分组规则
 
-- 以完整功能链路为一个提交单元，不按代码目录、分层模块或技术组件拆分。
+- 以完整功能链路为一个提交单元，不按代码目录、分层模块或技术组件拆分。同一链路的不同业务，为不同分组
 - 同一业务功能涉及 `controller`、`service`、`impl`、`feign`、`dto`、测试、文档时，优先归为同一提交。
 - 多个功能并存时，按改动量从大到小排序后依次提交。
 - 改动量以该功能分组的增删行总数估算，优先看 `git diff --numstat` 和 `git diff --stat`。

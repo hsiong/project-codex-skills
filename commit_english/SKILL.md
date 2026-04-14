@@ -1,6 +1,6 @@
 ---
 name: "commit_english"
-description: "Use when the user says \"English commit\", \"english commit\", \"commit\", or similar. This skill completes multiple commits in the current Git workspace using only Git-known files: commit messages must be in English, follow GitHub/Conventional Commits style, be grouped by complete functional flow rather than by code module, and never mix independent changes in one commit. Commits must be ordered from the largest change set to the smallest. It is strictly forbidden to access files not added to Git, and strictly forbidden to read or commit `*/application.yml`, `*/application-*.yml`, `.fastRequest/*`, `.mvn/*`, `.idea/*`, `config/.env.*`, or anything mentioned in `.gitignore`; it is also strictly forbidden to modify user code without permission; the total changed lines must be summarized after completion."
+description: "Use this skill when the user asks for English Git commits, such as \"English commit\", \"commit this\", or \"split these commits\". It handles only allowed Git-known changes, groups independent work into separate English Conventional Commits, and reports the final commit list plus changed lines; do not use it to edit code, inspect untracked files, or include restricted paths. Success means the workspace is committed safely by functional flow with a clear summary."
 ---
 
 # Commit

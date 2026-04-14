@@ -1,6 +1,6 @@
 ---
 name: java-feign-integration
-description: 当用户需要在 Java 代码中集成第三方接口、内部 RPC 接口或 HTTP 接口时使用。该技能要求优先基于项目现有实现接入 Feign：先参考已有 `FeignResponseDecoder` 实现 `FeignDecoder`，如有鉴权、公共请求头或签名要求，再参考 `FeignRequestInterceptor` 完成 Interceptor；Feign 的入参和出参统一使用 DTO；同时需要遵循 `java-code-style` skill 的注释、分层、校验和返回风格。
+description: "当用户要在 Java 项目中对接第三方接口、内部 RPC 或 HTTP API，并且应沿用现有 Feign 模式时使用，例如“接一个 Feign 接口”或“补 decoder/interceptor”。它负责基于项目已有的 DTO、decoder、interceptor 和 service 规范补齐接入链路；不用于非 Java 场景、普通代码风格调整或整条链路重构。成功标准是 Feign 接入与项目既有实现保持一致，且业务逻辑留在 service。"
 ---
 
 # Java Feign Integration

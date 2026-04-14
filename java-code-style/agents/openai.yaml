@@ -1,7 +1,7 @@
 interface:
   display_name: "Java代码规范"
-  short_description: "生成Java代码时遵循注释、关键说明、分层和简洁实现规范"
-  default_prompt: "Use $java-code-style when generating Java-related code so the output follows the required Java style, method comments, key inline comments, and controller-service layering rules."
+  short_description: "按现有项目风格生成最小改动的 Java 代码"
+  default_prompt: "Use $java-code-style to generate or revise Java backend code with project-consistent layering, validation, comments, and minimal structural change."
 
 policy:
   allow_implicit_invocation: true

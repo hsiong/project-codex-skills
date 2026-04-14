@@ -1,7 +1,7 @@
 interface:
   display_name: "Python代码规范"
-  short_description: "生成Python代码时遵循清晰直接、最小修改、适度注释和避免过度抽象的规范"
-  default_prompt: "Use $python-code-style when generating or modifying Python code so the output follows the required Python style, minimal-change approach, simple testing patterns, and clear business-oriented structure."
+  short_description: "按现有项目风格生成最小改动的 Python 代码"
+  default_prompt: "Use $python-code-style to generate or revise Python code with minimal structural change, clear business logic, and simple tests when needed."
 
 policy:
   allow_implicit_invocation: true
