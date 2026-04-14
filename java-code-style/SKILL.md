@@ -1,6 +1,6 @@
 ---
 name: java-code-style
-description: "当用户生成、补全、修改或评审 Java 后端代码，如 controller、service、DTO、VO 或接口定义时使用。它用于按现有项目风格产出最小改动的 Java 代码，补齐必要注释、校验、分层和统一返回；不用于前端、运维或与 Java 无关的任务。成功标准是代码可直接落地、风格一致且不过度抽象。"
+description: "当用户要生成、补全、修改或评审 Java 后端代码时触发，例如“补个 controller”“写个 service”“改一下 DTO”。它按现有项目风格产出最小改动的 Java 代码；不用于前端、运维或与 Java 无关的任务。"
 ---
 
 # Java Code Style
