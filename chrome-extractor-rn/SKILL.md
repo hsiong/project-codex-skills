@@ -23,15 +23,19 @@ Use this skill for tasks like:
 1. Confirm the user gave one or more links, usually with the wake word `chrome-extractor-rn`.
 2. Detect the current system and session type before choosing a script.
 3. Run the matching bundled capture script with one or more URLs or raw text blocks that contain URLs.
-4. Open the generated screenshots with `view_image`.
-5. Read visible title, 正文, 评论, 互动数据, 媒体类型 from the screenshots.
-6. Write the final Markdown summary.
+4. On each visible comments page, click every visible `展开 n 条回复` action before saving the screenshot.
+5. Re-scan the current page after each click because reply expansion changes the page layout.
+6. Open the generated screenshots with `view_image`.
+7. Read visible title, 正文, 评论, 互动数据, 媒体类型 from the screenshots.
+8. Write the final Markdown summary.
 
 ## Final Summary Rules
 
 - `title`、`正文`、`评论`、`互动数据`、`媒体类型` must stay as raw visible data. Do not rewrite them into polished prose.
 - Analyze images from the screenshots with `view_image`.
 - For video posts, analyze the cover image only. Do not infer unseen video content.
+- In `互动数据`, expand each visible conversation thread to include 2 replies when available.
+- Treat `展开 n 条回复` as a page action. Click each visible one on the current page, then re-check the page because the comment layout may shift.
 - Split `互动数据` by conversation block with fenced code blocks, for example:
 
 ```text
