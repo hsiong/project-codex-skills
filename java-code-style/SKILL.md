@@ -104,6 +104,12 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 - 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
 - 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
 
+## 测试代码约定
+
+- 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
+- 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
+- 无需你自动测试，我自行手动测试即可
+
 ## 生成代码时的执行方式
 
 - 生成 controller 时，只保留参数接收、基础校验、调用 service、封装返回。
