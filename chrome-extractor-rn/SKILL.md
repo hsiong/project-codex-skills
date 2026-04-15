@@ -1,6 +1,6 @@
 ---
 name: chrome-extractor-rn
-description: Use when the user sends `extract-rn <link>`. It handles visible text, images, comments, and media details by operating the local GUI Chrome session, triggers for phrases like `extract https://...` or `用 Chrome 可视化提取这个链接`, and should not trigger for curl/scraping/headless-browser tasks or non-link coding work.
+description: Use when the user sends `extract-rn <link>`. It handles visible text, images, comments, and media details by operating the local GUI Chrome session, triggers for phrases like `extract-rn https://...` or `用 Chrome 可视化提取这个链接`, and should not trigger for curl/scraping/headless-browser tasks or non-link coding work.
 ---
 
 # Chrome Visual Extractor
@@ -19,7 +19,7 @@ Use this skill for tasks like:
 
 ## Quick Workflow
 
-1. Confirm the user gave a link, usually with the wake word `extract`.
+1. Confirm the user gave a link, usually with the wake word `extract-rn`.
 2. Detect the current system and session type before choosing a script.
 3. Run the matching bundled capture script with the Chrome URL.
 4. Open the generated screenshots with `view_image`.
@@ -47,7 +47,7 @@ python3 chrome-extractor-rn/scripts/extractor_rn_x11.py '<url>'
 3. If the system is not Linux Mint 22:
 
 - First verify the session is X11.
-- Then look under `chrome-visual-extractor/scripts/` for a script that matches the current OS and session.
+- Then look under `chrome-extractor-rn/scripts/` for a script that matches the current OS and session.
 - If no matching script exists yet, stop and tell the user this system is not supported by the skill yet.
 
 Optional arguments:
@@ -61,12 +61,12 @@ Optional arguments:
 
 The script writes:
 
-- `page_1.png`: initial visible page
-- `page_2.png`: comment area after a visual scroll attempt
+- `screenshots/page_1.png`: initial visible page
+- `screenshots/page_2.png`: comment area after a visual scroll attempt
 - `manifest.json`: metadata and file list
-- `REPORT_TEMPLATE.md`: Markdown scaffold for the final write-up
+- `REPORT.md`: Markdown scaffold for the final write-up
 
 ## Notes
 
 - The current bundled script targets Linux Mint 22 with X11, `wmctrl`, `gnome-screenshot`, and GUI Chrome.
-- The script uses Python Xlib for key and mouse events. If Xlib is unavailable, capture still works but scrolling is skipped.
+- The script requires an X11 session. If Python Xlib is unavailable, the initial capture still works but comment scrolling is skipped.

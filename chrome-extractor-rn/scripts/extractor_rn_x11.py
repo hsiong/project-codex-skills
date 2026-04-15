@@ -7,7 +7,6 @@ import os
 import re
 import shlex
 import subprocess
-import sys
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -51,7 +50,8 @@ def list_chrome_windows() -> list[ChromeWindow]:
         parts = raw_line.split(None, 4)
         if len(parts) < 5:
             continue
-        if parts[2] != "google-chrome.Google-chrome":
+        wm_class = parts[2].lower()
+        if "chrome" not in wm_class and "chromium" not in wm_class:
             continue
         windows.append(
             ChromeWindow(
@@ -110,6 +110,14 @@ def save_window_screenshot(path: Path) -> None:
     run(["gnome-screenshot", "-w", "-f", str(path)], capture=False)
 
 
+def require_x11_session() -> None:
+    session_type = os.environ.get("XDG_SESSION_TYPE", "").strip().lower()
+    if session_type and session_type != "x11":
+        raise SystemExit(f"unsupported session type: {session_type}")
+    if not os.environ.get("DISPLAY"):
+        raise SystemExit("missing DISPLAY for X11 session")
+
+
 class XController:
     def __init__(self) -> None:
         from Xlib import X, XK, display  # type: ignore
@@ -143,7 +151,7 @@ class XController:
             time.sleep(0.12)
 
 
-def build_report_template(url: str, window: ChromeWindow, screenshot_paths: list[Path]) -> str:
+def build_report(url: str, window: ChromeWindow, screenshot_paths: list[Path]) -> str:
     lines = [
         "# Chrome Visual Extraction",
         "",
@@ -182,10 +190,12 @@ def main() -> int:
     require_binary("wmctrl")
     require_binary("xwininfo")
     require_binary("gnome-screenshot")
+    require_x11_session()
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     out_dir = Path(args.out_dir) if args.out_dir else Path.cwd() / "tmp" / f"chrome_extractor_rn_{timestamp}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_pic_dir = out_dir / "screenshots"
+    out_pic_dir.mkdir(parents=True, exist_ok=True)
 
     before_ids = {window.window_id for window in list_chrome_windows()}
     open_url(args.url)
@@ -203,7 +213,7 @@ def main() -> int:
 
     activate_window(target_window.window_id)
 
-    page_1 = out_dir / "page_1.png"
+    page_1 = out_pic_dir / "page_1.png"
     save_window_screenshot(page_1)
     screenshot_paths = [page_1]
 
@@ -220,7 +230,7 @@ def main() -> int:
             time.sleep(0.5)
             controller.scroll_down(8)
             time.sleep(0.8)
-            page_2 = out_dir / "page_2.png"
+            page_2 = out_pic_dir / "page_2.png"
             save_window_screenshot(page_2)
             screenshot_paths.append(page_2)
         except Exception as exc:  # noqa: BLE001
@@ -236,8 +246,8 @@ def main() -> int:
         "command_hint": f"python3 {shlex.quote(str(Path(__file__)))} {shlex.quote(args.url)}",
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    (out_dir / "REPORT_TEMPLATE.md").write_text(
-        build_report_template(args.url, target_window, screenshot_paths),
+    (out_dir / "REPORT.md").write_text(
+        build_report(args.url, target_window, screenshot_paths),
         encoding="utf-8",
     )
 
