@@ -1,14 +1,14 @@
 ---
 name: chrome-extractor-rn
-description: Use when the user sends `extract-rn <link>` or `extract-rn <multi links>`. It handles one or more links that need one Chrome-based visual extraction report, triggers for phrases like `extract-rn https://...` or `extract-rn 3 links`, and should not trigger for curl, scraping, headless-browser tasks, or non-link coding work.
+description: Use when the user sends `chrome-extractor-rn <link>` or `chrome-extractor-rn <multi links>`.
 ---
 
 # Chrome Visual Extractor
 
 Use this skill for tasks like:
 
-- "extract-rn https://example.com/post/123"
-- "extract-rn 这3个链接都抓一下"
+- "chrome-extractor-rn https://example.com/post/123"
+- "chrome-extractor-rn 这3个链接都抓一下"
 
 ## Rules
 
@@ -20,7 +20,7 @@ Use this skill for tasks like:
 
 ## Quick Workflow
 
-1. Confirm the user gave one or more links, usually with the wake word `extract-rn`.
+1. Confirm the user gave one or more links, usually with the wake word `chrome-extractor-rn`.
 2. Detect the current system and session type before choosing a script.
 3. Run the matching bundled capture script with one or more URLs or raw text blocks that contain URLs.
 4. Open the generated screenshots with `view_image`.
