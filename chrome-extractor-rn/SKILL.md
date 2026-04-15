@@ -1,6 +1,6 @@
 ---
 name: chrome-extractor-rn
-description: Use when the user sends `chrome-extractor-rn <link>` or `chrome-extractor-rn <multi links>`.
+description: Use when the user sends `chrome-extractor-rn <link>` or `chrome-extractor-rn <multi links>`. Do not trigger for curl, scraping, headless-browser tasks, or ordinary coding work.
 ---
 
 # Chrome Visual Extractor
