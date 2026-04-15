@@ -27,6 +27,25 @@ Use this skill for tasks like:
 5. Read visible title, 正文, 评论, 互动数据, 媒体类型 from the screenshots.
 6. Write the final Markdown summary.
 
+## Final Summary Rules
+
+- `title`、`正文`、`评论`、`互动数据`、`媒体类型` must stay as raw visible data. Do not rewrite them into polished prose.
+- Analyze images from the screenshots with `view_image`.
+- For video posts, analyze the cover image only. Do not infer unseen video content.
+- Split `互动数据` by conversation block with fenced code blocks, for example:
+
+```text
+- xxx
+- xx
+```
+
+```text
+- xxx
+- xx
+```
+
+- If the page is unavailable and the generated `REPORT.md` already marks it as unavailable, keep the final Markdown summary to that result instead of fabricating missing fields.
+
 ## Script
 
 Choose the script by system instead of hardcoding one path first.
