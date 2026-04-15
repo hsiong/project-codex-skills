@@ -9,7 +9,9 @@ import re
 import subprocess
 import time
 from dataclasses import dataclass, asdict
+from http import HTTPStatus
 from pathlib import Path
+from urllib import error, request
 
 
 @dataclass
@@ -26,9 +28,21 @@ class CaptureResult:
     index: int
     url: str
     item_dir: Path
-    window: ChromeWindow
+    window: ChromeWindow | None
     screenshot_paths: list[Path]
     interaction_error: str
+    skipped_capture: bool
+    result_summary: str
+    precheck_status_code: int | None
+    precheck_location: str
+
+
+@dataclass
+class PrecheckResult:
+    skipped_capture: bool
+    status_code: int | None
+    location: str
+    result_summary: str
 
 
 def run(cmd: list[str], check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
@@ -174,6 +188,59 @@ def extract_urls(raw_inputs: list[str]) -> list[str]:
     return urls
 
 
+class NoRedirectHandler(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        return None
+
+
+def precheck_url(url: str, timeout: float = 10.0) -> PrecheckResult:
+    opener = request.build_opener(NoRedirectHandler)
+    req = request.Request(
+        url,
+        method="HEAD",
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "*/*",
+        },
+    )
+    status_code: int | None = None
+    location = ""
+    try:
+        with opener.open(req, timeout=timeout) as response:
+            status_code = response.getcode()
+            location = response.headers.get("Location", "")
+    except error.HTTPError as exc:
+        status_code = exc.code
+        location = exc.headers.get("Location", "")
+    except error.URLError:
+        return PrecheckResult(
+            skipped_capture=False,
+            status_code=None,
+            location="",
+            result_summary="",
+        )
+    except Exception:
+        return PrecheckResult(
+            skipped_capture=False,
+            status_code=None,
+            location="",
+            result_summary="",
+        )
+    if status_code in {HTTPStatus.FOUND, HTTPStatus.NOT_FOUND}:
+        return PrecheckResult(
+            skipped_capture=True,
+            status_code=status_code,
+            location=location,
+            result_summary="页面不存在或已下架",
+        )
+    return PrecheckResult(
+        skipped_capture=False,
+        status_code=status_code,
+        location=location,
+        result_summary="",
+    )
+
+
 class XController:
     def __init__(self) -> None:
         from Xlib import X, XK, display  # type: ignore
@@ -215,14 +282,27 @@ def build_report(results: list[CaptureResult], root_dir: Path) -> str:
         "",
     ]
     for result in results:
-        screenshot_text = ", ".join(str(path.relative_to(root_dir)) for path in result.screenshot_paths)
         lines.extend(
             [
                 f"## Item {result.index}",
                 "",
                 f"- URL: {result.url}",
+            ]
+        )
+        if result.result_summary:
+            lines.append(f"- Result: {result.result_summary}")
+        if result.precheck_status_code is not None:
+            lines.append(f"- HTTP precheck: {result.precheck_status_code}")
+        if result.precheck_location:
+            lines.append(f"- Redirect location: {result.precheck_location}")
+        if result.skipped_capture:
+            lines.append("")
+            continue
+        screenshot_text = ", ".join(str(path.relative_to(root_dir)) for path in result.screenshot_paths)
+        lines.extend(
+            [
                 f"- Output dir: {result.item_dir.relative_to(root_dir)}",
-                f"- Window title: {result.window.title}",
+                f"- Window title: {result.window.title if result.window else 'none'}",
                 f"- Screenshots: {screenshot_text}",
                 f"- Interaction error: {result.interaction_error or 'none'}",
                 "",
@@ -253,6 +333,34 @@ def capture_item(
     scroll_steps: int,
 ) -> CaptureResult:
     item_dir = root_dir / f"item_{item_index}"
+    item_dir.mkdir(parents=True, exist_ok=True)
+    precheck = precheck_url(url)
+    if precheck.skipped_capture:
+        manifest = {
+            "item_index": item_index,
+            "url": url,
+            "window": None,
+            "screenshots": [],
+            "output_dir": str(item_dir),
+            "interaction_error": "",
+            "skipped_capture": True,
+            "result_summary": precheck.result_summary,
+            "precheck_status_code": precheck.status_code,
+            "precheck_location": precheck.location,
+        }
+        (item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        return CaptureResult(
+            index=item_index,
+            url=url,
+            item_dir=item_dir,
+            window=None,
+            screenshot_paths=[],
+            interaction_error="",
+            skipped_capture=True,
+            result_summary=precheck.result_summary,
+            precheck_status_code=precheck.status_code,
+            precheck_location=precheck.location,
+        )
     screenshot_dir = item_dir / "screenshots"
     screenshot_dir.mkdir(parents=True, exist_ok=True)
     before_ids = {window.window_id for window in list_chrome_windows()}
@@ -297,6 +405,10 @@ def capture_item(
         "screenshots": [str(path) for path in screenshot_paths],
         "output_dir": str(item_dir),
         "interaction_error": interaction_error,
+        "skipped_capture": False,
+        "result_summary": "",
+        "precheck_status_code": precheck.status_code,
+        "precheck_location": precheck.location,
     }
     (item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return CaptureResult(
@@ -306,6 +418,10 @@ def capture_item(
         window=target_window,
         screenshot_paths=screenshot_paths,
         interaction_error=interaction_error,
+        skipped_capture=False,
+        result_summary="",
+        precheck_status_code=precheck.status_code,
+        precheck_location=precheck.location,
     )
 
 
