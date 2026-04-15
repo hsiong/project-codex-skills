@@ -69,6 +69,8 @@ class ExpandReplyTarget:
     max_y: int
     min_x: int
     max_x: int
+    width: int
+    height: int
     is_occluded: bool
     occlusion_reason: str
 
@@ -489,9 +491,12 @@ def find_expand_reply_targets(path: Path) -> list[ExpandReplyTarget]:
         box_height = max_y - min_y + 1
         pixel_count = int(blue_mask[min_y:max_y + 1, min_x:max_x + 1].sum())
         center_x = min_x + box_width // 2
-        if box_width < 35 or box_width > 260:
+        aspect_ratio = box_width / max(box_height, 1)
+        if box_width < 56 or box_width > 260:
             continue
         if box_height < 8 or box_height > 36:
+            continue
+        if aspect_ratio < 3.2:
             continue
         if pixel_count < 18 or pixel_count > 1200:
             continue
@@ -533,6 +538,8 @@ def find_expand_reply_targets(path: Path) -> list[ExpandReplyTarget]:
                 max_y=y0 + max_y,
                 min_x=x0 + min_x,
                 max_x=x0 + max_x,
+                width=max_x - min_x + 1,
+                height=max_y - min_y + 1,
                 is_occluded=bool(occlusion_reason),
                 occlusion_reason=occlusion_reason,
             )
@@ -689,6 +696,9 @@ def expand_visible_reply_links(
             if any(abs(target.x - clicked_x) <= 14 and abs(target.y - clicked_y) <= 10 for clicked_x, clicked_y in click_targets):
                 continue
             if any(abs(target.x - skipped_x) <= 20 and abs(target.y - skipped_y) <= 18 for skipped_x, skipped_y in skipped_targets):
+                continue
+            if target.width < 68 and target.height > 14:
+                skipped_targets.append((target.x, target.y))
                 continue
             next_target = target
             break
@@ -1102,6 +1112,7 @@ def capture_item(
         previous_comment_sample: np.ndarray | None = None
         initial_title = target_window.title
         stagnant_rounds = 0
+        tail_probe_rounds = 0
         while len(screenshot_paths) < max_pages:
             expanded_count = expand_visible_reply_links(
                 target_window.window_id,
@@ -1110,6 +1121,7 @@ def capture_item(
                 screenshot_dir,
                 len(screenshot_paths) + 1,
             )
+            scroll_x, scroll_y = comment_panel_point(geometry)
             next_page = screenshot_dir / f"page_{len(screenshot_paths) + 1}.png"
             save_window_screenshot(target_window.window_id, next_page)
             current_window = get_window_by_id(target_window.window_id)
@@ -1132,6 +1144,12 @@ def capture_item(
                 break
             comment_digest = sample_digest(comment_sample)
             if comment_digest in seen_comment_digests:
+                if expanded_count == 0 and tail_probe_rounds < 3:
+                    tail_probe_rounds += 1
+                    next_page.unlink(missing_ok=True)
+                    controller.scroll_down(max(1, scroll_steps // 2), x=scroll_x, y=scroll_y)
+                    time.sleep(0.8)
+                    continue
                 stop_reason = "comment panel repeated"
                 next_page.unlink(missing_ok=True)
                 break
@@ -1141,25 +1159,37 @@ def capture_item(
                     stagnant_rounds += 1
                 else:
                     stagnant_rounds = 0
-            if stagnant_rounds >= 2 and expanded_count == 0:
+            if stagnant_rounds >= 3 and expanded_count == 0:
+                if tail_probe_rounds < 3:
+                    tail_probe_rounds += 1
+                    next_page.unlink(missing_ok=True)
+                    controller.scroll_down(max(1, scroll_steps // 2), x=scroll_x, y=scroll_y)
+                    time.sleep(0.8)
+                    continue
                 stop_reason = "comment panel stopped changing"
                 next_page.unlink(missing_ok=True)
                 break
             next_hash = file_sha256(next_page)
             if next_hash in seen_hashes:
+                if expanded_count == 0 and tail_probe_rounds < 3:
+                    tail_probe_rounds += 1
+                    next_page.unlink(missing_ok=True)
+                    controller.scroll_down(max(1, scroll_steps // 2), x=scroll_x, y=scroll_y)
+                    time.sleep(0.8)
+                    continue
                 stop_reason = "window screenshot repeated"
                 next_page.unlink(missing_ok=True)
                 break
             seen_hashes.add(next_hash)
             seen_comment_digests.add(comment_digest)
             previous_comment_sample = comment_sample
+            tail_probe_rounds = 0
             screenshot_paths.append(next_page)
             if skip_comment_scroll:
                 stop_reason = "skip_comment_scroll enabled"
                 break
-            scroll_x, scroll_y = comment_panel_point(geometry)
             controller.scroll_down(scroll_steps, x=scroll_x, y=scroll_y)
-            time.sleep(0.8)
+            time.sleep(1.2)
         if not stop_reason and len(screenshot_paths) >= max_pages:
             stop_reason = f"reached max_pages={max_pages}"
     except Exception as exc:  # noqa: BLE001
@@ -1204,8 +1234,8 @@ def main() -> int:
     parser.add_argument("--wait-seconds", type=float, default=8.0, help="Wait after opening the URL")
     parser.add_argument("--window-hint", default="", help="Prefer a Chrome window whose title contains this text")
     parser.add_argument("--skip-comment-scroll", action="store_true", help="Only capture the initial page")
-    parser.add_argument("--max-pages", type=int, default=20, help="Maximum screenshots to keep for one link")
-    parser.add_argument("--scroll-steps", type=int, default=8, help="Mouse-wheel steps between screenshots")
+    parser.add_argument("--max-pages", type=int, default=40, help="Maximum screenshots to keep for one link")
+    parser.add_argument("--scroll-steps", type=int, default=10, help="Mouse-wheel steps between screenshots")
     parser.add_argument("--chrome-profile-dir", default="", help="Use a dedicated Chrome profile directory")
     parser.add_argument("--xephyr", action="store_true", help="Deprecated compatibility flag; capture now prefers the persistent chrome-extractor-rn-main Xephyr session by default")
     parser.add_argument("--xephyr-session", default="", help="Persistent Xephyr session name to reuse login state, defaulting to chrome-extractor-rn-main")
