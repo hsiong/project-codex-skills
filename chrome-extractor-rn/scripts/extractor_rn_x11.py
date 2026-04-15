@@ -8,6 +8,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, asdict
 from http import HTTPStatus
@@ -38,6 +39,7 @@ class CaptureResult:
     result_summary: str
     precheck_status_code: int | None
     precheck_location: str
+    stop_reason: str
 
 
 @dataclass
@@ -46,6 +48,17 @@ class PrecheckResult:
     status_code: int | None
     location: str
     result_summary: str
+
+
+@dataclass
+class XephyrSessionState:
+    name: str
+    display: str
+    screen: str
+    profile_dir: str
+    xephyr_pid: int
+    metacity_pid: int
+    created_at: str
 
 
 def run(cmd: list[str], check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
@@ -71,7 +84,9 @@ def shutil_which(name: str) -> str | None:
 
 
 def list_chrome_windows() -> list[ChromeWindow]:
-    result = run(["wmctrl", "-lx"])
+    result = run(["wmctrl", "-lx"], check=False)
+    if result.returncode != 0:
+        return []
     windows: list[ChromeWindow] = []
     for raw_line in result.stdout.splitlines():
         parts = raw_line.split(None, 4)
@@ -90,6 +105,14 @@ def list_chrome_windows() -> list[ChromeWindow]:
             )
         )
     return windows
+
+
+def get_window_by_id(window_id: str) -> ChromeWindow | None:
+    lowered_id = window_id.lower()
+    for window in list_chrome_windows():
+        if window.window_id.lower() == lowered_id:
+            return window
+    return None
 
 
 def choose_window(windows: list[ChromeWindow], hint: str | None) -> ChromeWindow:
@@ -147,15 +170,72 @@ def activate_window(window_id: str) -> None:
     time.sleep(1.0)
 
 
-def open_url(url: str) -> None:
+def spawn_background_process(
+    command: list[str],
+    *,
+    env: dict[str, str] | None = None,
+    stdout=None,
+    stderr=None,
+) -> subprocess.Popen[bytes]:
+    return subprocess.Popen(
+        command,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=stdout if stdout is not None else subprocess.DEVNULL,
+        stderr=stderr if stderr is not None else subprocess.DEVNULL,
+        start_new_session=True,
+        close_fds=True,
+    )
+
+
+def open_url(
+    url: str,
+    *,
+    new_window: bool = False,
+    profile_dir: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> None:
     chrome = shutil_which("google-chrome") or shutil_which("google-chrome-stable") or shutil_which("chromium")
     if not chrome:
         raise SystemExit("no Chrome/Chromium binary found")
-    subprocess.Popen([chrome, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    command = [chrome]
+    if new_window:
+        command.append("--new-window")
+    if profile_dir is not None:
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        command.extend(
+            [
+                f"--user-data-dir={profile_dir}",
+                "--no-first-run",
+                "--no-default-browser-check",
+            ]
+        )
+    command.append(url)
+    spawn_background_process(command, env=env)
 
 
-def save_window_screenshot(path: Path) -> None:
-    run(["gnome-screenshot", "-w", "-f", str(path)], capture=False)
+def save_window_screenshot(window_id: str, path: Path) -> None:
+    xwd_path = path.with_suffix(".xwd")
+    try:
+        run(["xwd", "-silent", "-id", window_id, "-out", str(xwd_path)], capture=False)
+        run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "xwd_pipe",
+                "-i",
+                str(xwd_path),
+                "-frames:v",
+                "1",
+                str(path),
+            ],
+            capture=False,
+        )
+    finally:
+        xwd_path.unlink(missing_ok=True)
 
 
 def file_sha256(path: Path) -> str:
@@ -287,6 +367,44 @@ def load_rgb_image(path: Path) -> np.ndarray:
     )
     rgb = np.frombuffer(frame.stdout, dtype=np.uint8)
     return rgb.reshape((height, width, 3))
+
+
+def sample_region(
+    image: np.ndarray,
+    *,
+    x_start_ratio: float,
+    x_end_ratio: float,
+    y_start_ratio: float,
+    y_end_ratio: float,
+    sample_height: int = 72,
+    sample_width: int = 72,
+) -> np.ndarray:
+    height, width, _ = image.shape
+    x0 = max(0, min(width - 1, int(width * x_start_ratio)))
+    x1 = max(x0 + 1, min(width, int(width * x_end_ratio)))
+    y0 = max(0, min(height - 1, int(height * y_start_ratio)))
+    y1 = max(y0 + 1, min(height, int(height * y_end_ratio)))
+    cropped = image[y0:y1, x0:x1]
+    y_indices = np.linspace(0, cropped.shape[0] - 1, num=min(sample_height, cropped.shape[0]), dtype=int)
+    x_indices = np.linspace(0, cropped.shape[1] - 1, num=min(sample_width, cropped.shape[1]), dtype=int)
+    sampled = cropped[np.ix_(y_indices, x_indices)]
+    grayscale = (
+        sampled[:, :, 0].astype(np.float32) * 0.299
+        + sampled[:, :, 1].astype(np.float32) * 0.587
+        + sampled[:, :, 2].astype(np.float32) * 0.114
+    )
+    return (grayscale // 8).astype(np.uint8)
+
+
+def sample_digest(sample: np.ndarray) -> str:
+    return hashlib.sha256(sample.tobytes()).hexdigest()
+
+
+def sample_distance(left: np.ndarray, right: np.ndarray) -> float:
+    if left.shape != right.shape:
+        raise ValueError("sample shapes do not match")
+    delta = np.abs(left.astype(np.int16) - right.astype(np.int16))
+    return float(delta.mean())
 
 
 def dilate_mask(mask: np.ndarray, radius_y: int, radius_x: int) -> np.ndarray:
@@ -457,23 +575,31 @@ class XController:
         self.lib_xtst.XTestFakeKeyEvent(self.display, keycode, 0, 0)
         self.lib_x11.XSync(self.display, 0)
 
-    def click(self, x: int, y: int) -> None:
+    def move_pointer(self, x: int, y: int) -> None:
         if self.backend == "python-xlib":
             self.root.warp_pointer(x, y)
             self.display.sync()
+            return
+        self.lib_x11.XWarpPointer(self.display, 0, self.root, 0, 0, 0, 0, x, y)
+        self.lib_x11.XFlush(self.display)
+        self.lib_x11.XSync(self.display, 0)
+
+    def click(self, x: int, y: int) -> None:
+        self.move_pointer(x, y)
+        if self.backend == "python-xlib":
             time.sleep(0.2)
             self.xtest.fake_input(self.display, self.X.ButtonPress, 1)
             self.xtest.fake_input(self.display, self.X.ButtonRelease, 1)
             self.display.sync()
             return
-        self.lib_x11.XWarpPointer(self.display, 0, self.root, 0, 0, 0, 0, x, y)
-        self.lib_x11.XFlush(self.display)
         time.sleep(0.2)
         self.lib_xtst.XTestFakeButtonEvent(self.display, 1, 1, 0)
         self.lib_xtst.XTestFakeButtonEvent(self.display, 1, 0, 0)
         self.lib_x11.XSync(self.display, 0)
 
-    def scroll_down(self, steps: int) -> None:
+    def scroll_down(self, steps: int, x: int | None = None, y: int | None = None) -> None:
+        if x is not None and y is not None:
+            self.move_pointer(x, y)
         if self.backend == "python-xlib":
             for _ in range(steps):
                 self.xtest.fake_input(self.display, self.X.ButtonPress, 5)
@@ -488,7 +614,15 @@ class XController:
             time.sleep(0.12)
 
 
+def comment_panel_point(geometry: dict[str, int], y_ratio: float = 0.72) -> tuple[int, int]:
+    return (
+        geometry["x"] + int(geometry["width"] * 0.87),
+        geometry["y"] + int(geometry["height"] * y_ratio),
+    )
+
+
 def expand_visible_reply_links(
+    window_id: str,
     geometry: dict[str, int],
     controller: XController,
     screenshot_dir: Path,
@@ -498,7 +632,7 @@ def expand_visible_reply_links(
     click_targets: list[tuple[int, int]] = []
     attempts = 0
     while attempts < 8:
-        save_window_screenshot(probe_path)
+        save_window_screenshot(window_id, probe_path)
         targets = find_expand_reply_targets(probe_path)
         next_target = None
         for target_x, target_y in targets:
@@ -514,6 +648,269 @@ def expand_visible_reply_links(
         time.sleep(0.9)
     probe_path.unlink(missing_ok=True)
     return len(click_targets)
+
+
+COMMENT_PANEL_REGION = {
+    "x_start_ratio": 0.63,
+    "x_end_ratio": 0.98,
+    "y_start_ratio": 0.24,
+    "y_end_ratio": 0.96,
+}
+
+HEADER_REGION = {
+    "x_start_ratio": 0.63,
+    "x_end_ratio": 0.98,
+    "y_start_ratio": 0.05,
+    "y_end_ratio": 0.22,
+}
+
+MAIN_IMAGE_REGION = {
+    "x_start_ratio": 0.05,
+    "x_end_ratio": 0.58,
+    "y_start_ratio": 0.12,
+    "y_end_ratio": 0.90,
+}
+
+
+def is_main_image_dominant(image: np.ndarray) -> bool:
+    left_sample = sample_region(image, **MAIN_IMAGE_REGION, sample_height=84, sample_width=84)
+    comment_sample = sample_region(image, **COMMENT_PANEL_REGION, sample_height=84, sample_width=84)
+    left_variance = float(np.var(left_sample.astype(np.float32)))
+    comment_variance = float(np.var(comment_sample.astype(np.float32)))
+    return left_variance >= 12.0 and left_variance >= comment_variance * 2.2
+
+
+def wait_for_x_display(display_name: str, timeout_seconds: float = 10.0) -> None:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        result = run(["xdpyinfo", "-display", display_name], check=False)
+        if result.returncode == 0:
+            return
+        time.sleep(0.2)
+    raise SystemExit(f"failed to start display {display_name}")
+
+
+def sanitize_session_name(raw_name: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9._-]+", "-", raw_name.strip())
+    cleaned = cleaned.strip("-._")
+    if not cleaned:
+        raise SystemExit("xephyr session name is empty after sanitization")
+    return cleaned
+
+
+def session_root_dir() -> Path:
+    return Path.cwd() / "tmp" / "xephyr_sessions"
+
+
+def session_dir_for(name: str) -> Path:
+    return session_root_dir() / sanitize_session_name(name)
+
+
+def session_state_path(session_dir: Path) -> Path:
+    return session_dir / "session.json"
+
+
+def pid_is_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def load_session_state(session_name: str) -> XephyrSessionState | None:
+    state_path = session_state_path(session_dir_for(session_name))
+    if not state_path.exists():
+        return None
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    state = XephyrSessionState(**data)
+    if not (pid_is_alive(state.xephyr_pid) and pid_is_alive(state.metacity_pid)):
+        state_path.unlink(missing_ok=True)
+        return None
+    return state
+
+
+def write_session_state(session_name: str, state: XephyrSessionState) -> None:
+    session_dir = session_dir_for(session_name)
+    session_dir.mkdir(parents=True, exist_ok=True)
+    session_state_path(session_dir).write_text(json.dumps(asdict(state), ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def session_display_env(display_name: str) -> dict[str, str]:
+    env = os.environ.copy()
+    env["DISPLAY"] = display_name
+    env["XDG_SESSION_TYPE"] = "x11"
+    env.pop("WAYLAND_DISPLAY", None)
+    return env
+
+
+def default_profile_dir_for_session(session_name: str) -> Path:
+    return session_dir_for(session_name) / "chrome-profile"
+
+
+def start_xephyr_session(session_name: str, display_name: str, screen: str, profile_dir: Path) -> XephyrSessionState:
+    require_binary("Xephyr")
+    require_binary("metacity")
+    require_binary("xdpyinfo")
+    display_env = session_display_env(display_name)
+    session_dir = session_dir_for(session_name)
+    session_dir.mkdir(parents=True, exist_ok=True)
+    xephyr_log = (session_dir / "xephyr.log").open("ab")
+    metacity_log = (session_dir / "metacity.log").open("ab")
+    xephyr = subprocess.Popen(
+        [
+            "Xephyr",
+            display_name,
+            "-screen",
+            screen,
+            "-ac",
+            "-br",
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=xephyr_log,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+        close_fds=True,
+    )
+    try:
+        wait_for_x_display(display_name)
+        metacity = spawn_background_process(
+            [
+                "metacity",
+                "--display",
+                display_name,
+                "--sm-disable",
+            ],
+            env=display_env,
+            stdout=metacity_log,
+            stderr=subprocess.STDOUT,
+        )
+    except Exception:
+        xephyr.terminate()
+        try:
+            xephyr.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            xephyr.kill()
+        raise
+    state = XephyrSessionState(
+        name=sanitize_session_name(session_name),
+        display=display_name,
+        screen=screen,
+        profile_dir=str(profile_dir),
+        xephyr_pid=xephyr.pid,
+        metacity_pid=metacity.pid,
+        created_at=time.strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    write_session_state(session_name, state)
+    return state
+
+
+def effective_xephyr_session_name(args: argparse.Namespace) -> str:
+    return sanitize_session_name(args.xephyr_session or "chrome-extractor-rn-main")
+
+
+def ensure_xephyr_session(args: argparse.Namespace) -> tuple[XephyrSessionState, bool]:
+    session_name = effective_xephyr_session_name(args)
+    state = load_session_state(session_name)
+    if state is not None:
+        return state, False
+    profile_dir = Path(args.chrome_profile_dir) if args.chrome_profile_dir else default_profile_dir_for_session(session_name)
+    return start_xephyr_session(session_name, args.xephyr_display, args.xephyr_screen, profile_dir), True
+
+
+def close_xephyr_session(session_name: str) -> int:
+    state = load_session_state(session_name)
+    if state is None:
+        print(f"xephyr session not found: {sanitize_session_name(session_name)}")
+        return 0
+    for pid in [state.metacity_pid, state.xephyr_pid]:
+        try:
+            os.kill(pid, 15)
+        except OSError:
+            continue
+    session_state_path(session_dir_for(session_name)).unlink(missing_ok=True)
+    print(f"closed xephyr session: {sanitize_session_name(session_name)}")
+    return 0
+
+
+def wait_for_target_window(before_ids: set[str], wait_seconds: float, hint: str | None) -> ChromeWindow:
+    deadline = time.time() + max(wait_seconds, 10.0)
+    while time.time() < deadline:
+        windows = list_chrome_windows()
+        active_window_id = get_active_window_id()
+        if windows:
+            try:
+                return choose_target_window(windows, hint or None, active_window_id, before_ids)
+            except SystemExit:
+                pass
+        time.sleep(0.5)
+    raise SystemExit("timed out waiting for Chrome window")
+
+
+def ensure_login_window(session_state: XephyrSessionState, url: str) -> None:
+    display_env = session_display_env(session_state.display)
+    windows_before = list_chrome_windows()
+    open_url(
+        url,
+        new_window=not windows_before,
+        profile_dir=Path(session_state.profile_dir),
+        env=display_env,
+    )
+    time.sleep(2.0)
+    if not list_chrome_windows():
+        raise SystemExit("failed to open Chrome inside Xephyr session")
+
+
+def maybe_rerun_in_xephyr(args: argparse.Namespace) -> int | None:
+    wants_xephyr = bool(args.inputs) or args.prepare_login or bool(args.close_xephyr_session) or args.xephyr or bool(args.xephyr_session)
+    if not wants_xephyr:
+        return None
+    if args.close_xephyr_session:
+        return close_xephyr_session(args.close_xephyr_session)
+    session_state, created = ensure_xephyr_session(args)
+    current_display = os.environ.get("DISPLAY", "")
+    if created:
+        original_display = os.environ.get("DISPLAY")
+        os.environ.update(session_display_env(session_state.display))
+        try:
+            ensure_login_window(session_state, args.login_url or "https://www.xiaohongshu.com")
+        finally:
+            if original_display is None:
+                os.environ.pop("DISPLAY", None)
+            else:
+                os.environ["DISPLAY"] = original_display
+        print(f"xephyr session started: {session_state.name}")
+        print(f"display={session_state.display}")
+        print(f"profile_dir={session_state.profile_dir}")
+        print("login in the Xephyr window, then rerun the same command")
+        return 0
+    if args.prepare_login:
+        original_display = os.environ.get("DISPLAY")
+        os.environ.update(session_display_env(session_state.display))
+        try:
+            ensure_login_window(session_state, args.login_url or "https://www.xiaohongshu.com")
+        finally:
+            if original_display is None:
+                os.environ.pop("DISPLAY", None)
+            else:
+                os.environ["DISPLAY"] = original_display
+        print(f"xephyr session ready: {session_state.name}")
+        print(f"display={session_state.display}")
+        print(f"profile_dir={session_state.profile_dir}")
+        return 0
+    if current_display == session_state.display:
+        return None
+    rerun_args = [value for value in sys.argv[1:] if value != "--xephyr"]
+    if "--prepare-login" in rerun_args:
+        rerun_args.remove("--prepare-login")
+    rerun = subprocess.run(
+        [sys.executable, __file__, *rerun_args],
+        env=session_display_env(session_state.display),
+        check=False,
+    )
+    return rerun.returncode
 
 
 def build_report(results: list[CaptureResult], root_dir: Path) -> str:
@@ -540,6 +937,8 @@ def build_report(results: list[CaptureResult], root_dir: Path) -> str:
         if result.skipped_capture:
             lines.append("")
             continue
+        if result.stop_reason:
+            lines.append(f"- Stop reason: {result.stop_reason}")
         screenshot_text = ", ".join(str(path.relative_to(root_dir)) for path in result.screenshot_paths)
         lines.extend(
             [
@@ -573,6 +972,7 @@ def capture_item(
     skip_comment_scroll: bool,
     max_pages: int,
     scroll_steps: int,
+    chrome_profile_dir: Path | None,
 ) -> CaptureResult:
     item_dir = root_dir / f"item_{item_index}"
     item_dir.mkdir(parents=True, exist_ok=True)
@@ -589,6 +989,7 @@ def capture_item(
             "result_summary": precheck.result_summary,
             "precheck_status_code": precheck.status_code,
             "precheck_location": precheck.location,
+            "stop_reason": "",
         }
         (item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         return CaptureResult(
@@ -602,47 +1003,105 @@ def capture_item(
             result_summary=precheck.result_summary,
             precheck_status_code=precheck.status_code,
             precheck_location=precheck.location,
+            stop_reason="",
         )
     screenshot_dir = item_dir / "screenshots"
     screenshot_dir.mkdir(parents=True, exist_ok=True)
-    before_ids = {window.window_id for window in list_chrome_windows()}
-    open_url(url)
-    time.sleep(wait_seconds)
-    windows = list_chrome_windows()
+    before_windows = list_chrome_windows()
+    before_ids = {window.window_id for window in before_windows}
     active_window_id = get_active_window_id()
-    target_window = choose_target_window(windows, window_hint or None, active_window_id, before_ids)
+    existing_window: ChromeWindow | None = None
+    if before_windows:
+        existing_window = choose_target_window(before_windows, window_hint or None, active_window_id, set())
+        activate_window(existing_window.window_id)
+        time.sleep(0.6)
+    open_url(url, new_window=not before_windows, profile_dir=chrome_profile_dir)
+    time.sleep(wait_seconds)
+    if existing_window is not None:
+        refreshed_window = get_window_by_id(existing_window.window_id)
+        target_window = refreshed_window or existing_window
+    else:
+        target_window = wait_for_target_window(before_ids, wait_seconds, window_hint or None)
     activate_window(target_window.window_id)
     screenshot_paths: list[Path] = []
     seen_hashes: set[str] = set()
+    seen_comment_digests: set[str] = set()
     interaction_error = ""
+    stop_reason = ""
     try:
         geometry = get_window_geometry(target_window.window_id)
         controller = XController()
         controller.press_key("Escape")
         time.sleep(0.5)
-        comment_x = geometry["x"] + int(geometry["width"] * 0.87)
-        comment_y = geometry["y"] + int(geometry["height"] * 0.62)
-        controller.click(comment_x, comment_y)
-        time.sleep(0.5)
+        baseline_header_sample: np.ndarray | None = None
+        previous_comment_sample: np.ndarray | None = None
+        initial_title = target_window.title
+        stagnant_rounds = 0
         while len(screenshot_paths) < max_pages:
-            expand_visible_reply_links(geometry, controller, screenshot_dir, len(screenshot_paths) + 1)
+            expanded_count = expand_visible_reply_links(
+                target_window.window_id,
+                geometry,
+                controller,
+                screenshot_dir,
+                len(screenshot_paths) + 1,
+            )
             next_page = screenshot_dir / f"page_{len(screenshot_paths) + 1}.png"
-            save_window_screenshot(next_page)
+            save_window_screenshot(target_window.window_id, next_page)
+            current_window = get_window_by_id(target_window.window_id)
+            if current_window is not None and initial_title and current_window.title != initial_title:
+                stop_reason = f"window title changed from '{initial_title}' to '{current_window.title}'"
+                next_page.unlink(missing_ok=True)
+                break
+            image = load_rgb_image(next_page)
+            header_sample = sample_region(image, **HEADER_REGION)
+            if baseline_header_sample is None:
+                baseline_header_sample = header_sample
+            elif sample_distance(header_sample, baseline_header_sample) >= 4.5:
+                stop_reason = "page header changed, likely switched to a different note"
+                next_page.unlink(missing_ok=True)
+                break
+            comment_sample = sample_region(image, **COMMENT_PANEL_REGION)
+            if is_main_image_dominant(image):
+                stop_reason = "page focus moved to main image area"
+                next_page.unlink(missing_ok=True)
+                break
+            comment_digest = sample_digest(comment_sample)
+            if comment_digest in seen_comment_digests:
+                stop_reason = "comment panel repeated"
+                next_page.unlink(missing_ok=True)
+                break
+            if previous_comment_sample is not None:
+                comment_distance = sample_distance(comment_sample, previous_comment_sample)
+                if comment_distance <= 0.35:
+                    stagnant_rounds += 1
+                else:
+                    stagnant_rounds = 0
+            if stagnant_rounds >= 2 and expanded_count == 0:
+                stop_reason = "comment panel stopped changing"
+                next_page.unlink(missing_ok=True)
+                break
             next_hash = file_sha256(next_page)
             if next_hash in seen_hashes:
+                stop_reason = "window screenshot repeated"
                 next_page.unlink(missing_ok=True)
                 break
             seen_hashes.add(next_hash)
+            seen_comment_digests.add(comment_digest)
+            previous_comment_sample = comment_sample
             screenshot_paths.append(next_page)
             if skip_comment_scroll:
+                stop_reason = "skip_comment_scroll enabled"
                 break
-            controller.scroll_down(scroll_steps)
+            scroll_x, scroll_y = comment_panel_point(geometry)
+            controller.scroll_down(scroll_steps, x=scroll_x, y=scroll_y)
             time.sleep(0.8)
+        if not stop_reason and len(screenshot_paths) >= max_pages:
+            stop_reason = f"reached max_pages={max_pages}"
     except Exception as exc:  # noqa: BLE001
         interaction_error = str(exc)
         if not screenshot_paths:
             fallback_path = screenshot_dir / "page_1.png"
-            save_window_screenshot(fallback_path)
+            save_window_screenshot(target_window.window_id, fallback_path)
             screenshot_paths.append(fallback_path)
     manifest = {
         "item_index": item_index,
@@ -655,6 +1114,7 @@ def capture_item(
         "result_summary": "",
         "precheck_status_code": precheck.status_code,
         "precheck_location": precheck.location,
+        "stop_reason": stop_reason,
     }
     (item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return CaptureResult(
@@ -668,23 +1128,36 @@ def capture_item(
         result_summary="",
         precheck_status_code=precheck.status_code,
         precheck_location=precheck.location,
+        stop_reason=stop_reason,
     )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Visually capture one or more pages from local GUI Chrome.")
-    parser.add_argument("inputs", nargs="+", help="One or more URLs or raw text blocks containing URLs")
+    parser.add_argument("inputs", nargs="*", help="One or more URLs or raw text blocks containing URLs")
     parser.add_argument("--out-dir", default="", help="Directory for screenshots and metadata")
     parser.add_argument("--wait-seconds", type=float, default=8.0, help="Wait after opening the URL")
     parser.add_argument("--window-hint", default="", help="Prefer a Chrome window whose title contains this text")
     parser.add_argument("--skip-comment-scroll", action="store_true", help="Only capture the initial page")
     parser.add_argument("--max-pages", type=int, default=20, help="Maximum screenshots to keep for one link")
     parser.add_argument("--scroll-steps", type=int, default=8, help="Mouse-wheel steps between screenshots")
+    parser.add_argument("--chrome-profile-dir", default="", help="Use a dedicated Chrome profile directory")
+    parser.add_argument("--xephyr", action="store_true", help="Deprecated compatibility flag; capture now prefers the persistent chrome-extractor-rn-main Xephyr session by default")
+    parser.add_argument("--xephyr-session", default="", help="Persistent Xephyr session name to reuse login state, defaulting to chrome-extractor-rn-main")
+    parser.add_argument("--xephyr-display", default=":99", help="Nested Xephyr display name")
+    parser.add_argument("--xephyr-screen", default="1400x2200", help="Nested Xephyr screen size")
+    parser.add_argument("--prepare-login", action="store_true", help="Start or reuse a Xephyr session and open Chrome for manual login")
+    parser.add_argument("--login-url", default="", help="Optional URL to open while preparing login")
+    parser.add_argument("--close-xephyr-session", default="", help="Close a persistent Xephyr session by name")
     args = parser.parse_args()
+
+    rerun_code = maybe_rerun_in_xephyr(args)
+    if rerun_code is not None:
+        return rerun_code
 
     require_binary("wmctrl")
     require_binary("xwininfo")
-    require_binary("gnome-screenshot")
+    require_binary("xwd")
     require_binary("xprop")
     require_binary("ffmpeg")
     require_binary("ffprobe")
@@ -693,6 +1166,15 @@ def main() -> int:
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     out_dir = Path(args.out_dir) if args.out_dir else Path.cwd() / "tmp" / f"chrome_capture_{timestamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.prepare_login or args.close_xephyr_session:
+        return 0
+    if not args.inputs:
+        raise SystemExit("no URL found in input")
+    wants_xephyr = bool(args.inputs) or args.prepare_login or args.xephyr or bool(args.xephyr_session)
+    if wants_xephyr and not args.chrome_profile_dir:
+        chrome_profile_dir = default_profile_dir_for_session(effective_xephyr_session_name(args))
+    else:
+        chrome_profile_dir = Path(args.chrome_profile_dir) if args.chrome_profile_dir else None
     urls = extract_urls(args.inputs)
     results = [
         capture_item(
@@ -704,6 +1186,7 @@ def main() -> int:
             args.skip_comment_scroll,
             args.max_pages,
             args.scroll_steps,
+            chrome_profile_dir,
         )
         for index, url in enumerate(urls, start=1)
     ]

@@ -17,17 +17,21 @@ Use this skill for tasks like:
 - Do not use `curl`, requests-based scraping, Chrome DevTools protocol scraping, or headless Chromes.
 - Prefer visual capture plus model-side image reading.
 - Keep the workflow additive. Do not modify the user's existing project files unless explicitly requested.
+- If `chrome-extractor-rn-main` does not exist yet, first create that Xephyr session and end the current turn immediately.
+- After creating a missing `chrome-extractor-rn-main` session, do not rerun the capture command in the same turn and do not poll in the background.
 
 ## Quick Workflow
 
 1. Confirm the user gave one or more links, usually with the wake word `chrome-extractor-rn`.
 2. Detect the current system and session type before choosing a script.
-3. Run the matching bundled capture script with one or more URLs or raw text blocks that contain URLs.
-4. On each visible comments page, click every visible `展开 n 条回复` action before saving the screenshot.
-5. Re-scan the current page after each click because reply expansion changes the page layout.
-6. Open the generated screenshots with `view_image`.
-7. Read visible title, 正文, 评论, 互动数据, 媒体类型 from the screenshots.
-8. Write the final Markdown summary.
+3. For Linux Mint 22 X11, treat `chrome-extractor-rn-main` as the default persistent Xephyr session.
+4. If that session is missing, start it once, tell the user to log in inside the Xephyr window if needed, and stop there for this turn.
+5. If that session already exists, run the matching bundled capture script with one or more URLs or raw text blocks that contain URLs.
+6. On each visible comments page, click every visible `展开 n 条回复` action before saving the screenshot.
+7. Re-scan the current page after each click because reply expansion changes the page layout.
+8. Open the generated screenshots with `view_image`.
+9. Read visible title, 正文, 评论, 互动数据, 媒体类型 from the screenshots.
+10. Write the final Markdown summary.
 
 ## Final Summary Rules
 
@@ -74,6 +78,14 @@ or:
 python3 chrome-extractor-rn/scripts/extractor_rn_x11.py '62 ... https://example.com/a' '88 ... https://example.com/b'
 ```
 
+Linux Mint 22 X11 session handling:
+
+- The default session name is `chrome-extractor-rn-main`.
+- If the session does not exist, let the script create it and stop after that command finishes.
+- Do not issue a second capture command in the same turn after the session is first created.
+- Do not keep waiting, polling, or background-looping for login completion.
+- Only on a later user command, or when the session already exists before this turn starts, continue to the actual capture run.
+
 3. If the system is not Linux Mint 22:
 
 - First verify the session is X11.
@@ -102,4 +114,4 @@ The script writes:
 
 - The current bundled script targets Linux Mint 22 with X11, `wmctrl`, `gnome-screenshot`, and GUI Chrome.
 - The script requires an X11 session. If Python Xlib is unavailable, the initial capture still works but comment scrolling is skipped.
-- Scrolling stops when a new screenshot matches a previously captured image for the same link, or when `--max-pages` is reached.
+- The default Linux Mint flow runs inside the persistent `chrome-extractor-rn-main` Xephyr session, so capture input does not take over the user's main desktop pointer.
