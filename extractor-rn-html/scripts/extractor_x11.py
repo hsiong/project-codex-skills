@@ -1172,7 +1172,7 @@ def start_xephyr_session(session_name: str, display_name: str, screen: str, prof
 
 
 def effective_xephyr_session_name(args: argparse.Namespace) -> str:
-	return sanitize_session_name(args.xephyr_session or "extractor-rn-vision-main")
+	return sanitize_session_name(args.xephyr_session or "chrome-extractor-rn-main")
 
 
 def ensure_xephyr_session(args: argparse.Namespace) -> tuple[XephyrSessionState, bool]:
@@ -1942,33 +1942,37 @@ def collect_video_urls(candidates: list[MediaCandidate], limit: int) -> list[str
 	return urls
 
 
-def build_manifest(result: CaptureResult, client: RnOllamaClient) -> dict[str, object]:
+def build_manifest(result: CaptureResult,
+		result_summary: str,
+		parse_error: str = "",
+		title: str = "",
+		正文: str = "",
+		评论: str = "",
+		互动数据: str = "",
+		图片: list[str] | None = None,
+		视频: list[str] | None = None, ) -> dict[str, object]:
 	return {
-		"item_index": result.index,
 		"url": result.url,
-		"window": asdict(result.window) if result.window else None,
-		"output_dir": str(result.item_dir),
 		"interaction_error": result.interaction_error,
-		"skipped_capture": result.skipped_capture,
-		"result_summary": result.result_summary,
+		"result_summary": result_summary,
 		"precheck_status_code": result.precheck_status_code,
-		"precheck_location": result.precheck_location,
 		"stop_reason": result.stop_reason,
-		"html_path": "",
-		"html_export_method": "",
-		"ollama_endpoint": client.url,
-		"ollama_model": client.model,
-		"parse_error": "",
-		"title": "",
-		"正文": "",
-		"评论": "",
-		"互动数据": "",
-		"图片": [],
-		"视频": [],
+		"parse_error": parse_error,
+		"title": title,
+		"正文": 正文,
+		"评论": 评论,
+		"互动数据": 互动数据,
+		"图片": 图片 or [],
+		"视频": 视频 or [],
 	}
 
 
+def compact_manifest(manifest: dict[str, object]) -> dict[str, object]:
+	return {key: value for key, value in manifest.items() if value not in ("", None, [], {})}
+
+
 def write_manifest(manifest: dict[str, object], item_dir: Path) -> dict[str, object]:
+	manifest = compact_manifest(manifest)
 	(item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 	return manifest
 
@@ -1984,38 +1988,37 @@ def process_result(result: CaptureResult,
 		item_index=result.index,
 		skipped_capture=result.skipped_capture,
 		window_found=result.window is not None, )
-	manifest = build_manifest(result, client)
 	if result.skipped_capture or result.window is None:
 		log_event("process_result.skip", item_index=result.index, reason=result.result_summary)
-		return write_manifest(manifest, result.item_dir)
+		return write_manifest(
+			build_manifest(result, result_summary=result.result_summary), result.item_dir, )
 	try:
 		html_path, export_method = export_current_html(result)
 		log_event(
 			"process_result.html_exported", item_index=result.index, html_path=html_path, export_method=export_method, )
-		manifest["html_path"] = str(html_path)
-		manifest["html_export_method"] = export_method
 		html_text = html_path.read_text(encoding="utf-8", errors="replace")
 		if ROOT_DIR is None:
 			raise RuntimeError("ROOT_DIR is not initialized")
 		item_dir = ROOT_DIR / f"item_{item_index}"
 		structured_fields = analyze_html_fields(html_text, result.url, client, item_dir)
-		manifest["title"] = structured_fields["title"]
-		manifest["正文"] = structured_fields["正文"]
-		manifest["评论"] = structured_fields["评论"]
-		manifest["互动数据"] = structured_fields["互动数据"]
 		image_candidates = [MediaCandidate(kind="image", source=image_url, resolved=image_url) for image_url in
 		                    structured_fields["图片"][:image_limit]]
-		manifest["图片"] = download_images(image_candidates, result.url, result.item_dir, image_limit)
-		manifest["视频"] = structured_fields["视频"][:video_limit]
-		manifest["result_summary"] = "expanded html exported and parsed by ollama-compatible model"
+		image_paths = download_images(image_candidates, result.url, result.item_dir, image_limit)
+		video_urls = structured_fields["视频"][:video_limit]
+		manifest = build_manifest(
+			result,
+			result_summary="expanded html exported and parsed by ollama-compatible model",
+			title=structured_fields["title"],
+			正文=structured_fields["正文"],
+			评论=structured_fields["评论"],
+			互动数据=structured_fields["互动数据"],
+			图片=image_paths,
+			视频=video_urls, )
 		log_event(
-			"process_result.done",
-			item_index=result.index,
-			image_count=len(manifest["图片"]),
-			video_count=len(manifest["视频"]), )
+			"process_result.done", item_index=result.index, image_count=len(image_paths), video_count=len(video_urls), )
 	except Exception as exc:  # noqa: BLE001
-		manifest["parse_error"] = str(exc)
-		manifest["result_summary"] = "html export or ollama-compatible parsing failed"
+		manifest = build_manifest(
+			result, result_summary="html export or ollama-compatible parsing failed", parse_error=str(exc), )
 		log_event("process_result.error", item_index=result.index, error=str(exc))
 	return write_manifest(manifest, result.item_dir)
 
@@ -2106,31 +2109,7 @@ def capture_item(url: str,
 	if precheck.skipped_capture:
 		log_event(
 			"capture_item.precheck_skip", status_code=precheck.status_code, location=precheck.location, )
-		manifest = {
-			"item_index": item_index,
-			"url": url,
-			"window": None,
-			"output_dir": str(item_dir),
-			"interaction_error": "",
-			"skipped_capture": True,
-			"result_summary": precheck.result_summary,
-			"precheck_status_code": precheck.status_code,
-			"precheck_location": precheck.location,
-			"stop_reason": "",
-			"html_path": "",
-			"html_export_method": "",
-			"ollama_endpoint": "",
-			"ollama_model": "",
-			"parse_error": "",
-			"title": "",
-			"正文": "",
-			"评论": "",
-			"互动数据": "",
-			"图片": [],
-			"视频": [],
-		}
-		(item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-		return CaptureResult(
+		result = CaptureResult(
 			index=item_index,
 			url=url,
 			item_dir=item_dir,
@@ -2142,6 +2121,8 @@ def capture_item(url: str,
 			precheck_status_code=precheck.status_code,
 			precheck_location=precheck.location,
 			stop_reason="", )
+		write_manifest(build_manifest(result, result_summary=result.result_summary), item_dir)
+		return result
 	temp_capture_dir = item_dir / ".capture_tmp"
 	temp_capture_dir.mkdir(parents=True, exist_ok=True)
 	before_windows = list_chrome_windows()
@@ -2202,7 +2183,7 @@ def capture_item(url: str,
 			save_window_screenshot(target_window.window_id, next_page)
 			current_window = get_window_by_id(target_window.window_id)
 			if current_window is not None and initial_title and current_window.title != initial_title:
-				stop_reason = f"window title changed from '{initial_title}' to '{current_window.title}'"
+				stop_reason = f"warn:window title changed from '{initial_title}' to '{current_window.title}'"
 				next_page.unlink(missing_ok=True)
 				break
 			image = load_rgb_image(next_page)
@@ -2210,12 +2191,12 @@ def capture_item(url: str,
 			if baseline_header_sample is None:
 				baseline_header_sample = header_sample
 			elif sample_distance(header_sample, baseline_header_sample) >= 4.5:
-				stop_reason = "page header changed, likely switched to a different note"
+				stop_reason = "warn:page header changed, likely switched to a different note"
 				next_page.unlink(missing_ok=True)
 				break
 			comment_sample = sample_region(image, **COMMENT_PANEL_REGION)
 			if is_main_image_dominant(image):
-				stop_reason = "page focus moved to main image area"
+				stop_reason = "warn:page focus moved to main image area"
 				next_page.unlink(missing_ok=True)
 				break
 			comment_digest = sample_digest(comment_sample)
@@ -2226,7 +2207,7 @@ def capture_item(url: str,
 					controller.scroll_down(max(1, scroll_steps // 2), x=scroll_x, y=scroll_y)
 					sleep_randomized(0.8, jitter_ratio=0.35, min_seconds=0.4, max_seconds=1.2)
 					continue
-				stop_reason = "comment panel repeated"
+				stop_reason = "ok:comment panel"
 				next_page.unlink(missing_ok=True)
 				break
 			if previous_comment_sample is not None:
@@ -2242,7 +2223,7 @@ def capture_item(url: str,
 					controller.scroll_down(max(1, scroll_steps // 2), x=scroll_x, y=scroll_y)
 					sleep_randomized(0.8, jitter_ratio=0.35, min_seconds=0.4, max_seconds=1.2)
 					continue
-				stop_reason = "comment panel stopped changing"
+				stop_reason = "ok:comment panel"
 				next_page.unlink(missing_ok=True)
 				break
 			next_hash = file_sha256(next_page)
@@ -2253,7 +2234,7 @@ def capture_item(url: str,
 					controller.scroll_down(max(1, scroll_steps // 2), x=scroll_x, y=scroll_y)
 					sleep_randomized(0.8, jitter_ratio=0.35, min_seconds=0.4, max_seconds=1.2)
 					continue
-				stop_reason = "window screenshot repeated"
+				stop_reason = "ok:screenshot"
 				next_page.unlink(missing_ok=True)
 				break
 			seen_hashes.add(next_hash)
@@ -2269,12 +2250,12 @@ def capture_item(url: str,
 				)
 			next_page.unlink(missing_ok=True)
 			if skip_comment_scroll:
-				stop_reason = "skip_comment_scroll enabled"
+				stop_reason = "ok:skip_comment_scroll"
 				break
 			controller.scroll_down(scroll_steps, x=scroll_x, y=scroll_y)
 			sleep_randomized(1.2, jitter_ratio=0.35, min_seconds=0.7, max_seconds=1.8)
 		if not stop_reason and page_index >= max_pages:
-			stop_reason = f"reached max_pages={max_pages}"
+			stop_reason = f"limit:reached max_pages={max_pages}"
 	except Exception as exc:  # noqa: BLE001
 		interaction_error = str(exc)
 		log_event("capture_item.error", item_index=item_index, error=interaction_error)
@@ -2286,31 +2267,7 @@ def capture_item(url: str,
 		stop_reason=stop_reason,
 		interaction_error=interaction_error,
 		page_count=page_index, )
-	manifest = {
-		"item_index": item_index,
-		"url": url,
-		"window": asdict(target_window),
-		"output_dir": str(item_dir),
-		"interaction_error": interaction_error,
-		"skipped_capture": False,
-		"result_summary": "",
-		"precheck_status_code": precheck.status_code,
-		"precheck_location": precheck.location,
-		"stop_reason": stop_reason,
-		"html_path": "",
-		"html_export_method": "",
-		"ollama_endpoint": "",
-		"ollama_model": "",
-		"parse_error": "",
-		"title": "",
-		"正文": "",
-		"评论": "",
-		"互动数据": "",
-		"图片": [],
-		"视频": [],
-	}
-	(item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-	return CaptureResult(
+	result = CaptureResult(
 		index=item_index,
 		url=url,
 		item_dir=item_dir,
@@ -2322,6 +2279,8 @@ def capture_item(url: str,
 		precheck_status_code=precheck.status_code,
 		precheck_location=precheck.location,
 		stop_reason=stop_reason, )
+	write_manifest(build_manifest(result, result_summary=result.result_summary), item_dir)
+	return result
 
 
 def main() -> int:
@@ -2344,12 +2303,12 @@ def main() -> int:
 	parser.add_argument(
 		"--xephyr",
 		action="store_true",
-		help="Deprecated compatibility flag; capture now prefers the persistent extractor-rn-vision-main Xephyr session by default"
+		help="Deprecated compatibility flag; capture now prefers the persistent chrome-extractor-rn-main Xephyr session by default"
 	)
 	parser.add_argument(
 		"--xephyr-session",
 		default="",
-		help="Persistent Xephyr session name to reuse login state, defaulting to extractor-rn-vision-main"
+		help="Persistent Xephyr session name to reuse login state, defaulting to chrome-extractor-rn-main"
 	)
 	parser.add_argument("--xephyr-display", default=":99", help="Nested Xephyr display name")
 	parser.add_argument("--xephyr-screen", default="1400x2200", help="Nested Xephyr screen size")
