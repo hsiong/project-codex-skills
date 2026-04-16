@@ -36,7 +36,7 @@ LINK_TAG_RE = re.compile(r"<link\b[^>]*>", re.IGNORECASE | re.DOTALL)
 AVATAR_ITEM_TAG_RE = re.compile(
 	r"<[^>]*\bclass\s*=\s*(\"[^\"]*\bavatar-item\b[^\"]*\"|'[^']*\bavatar-item\b[^']*')[^>]*>",
 	re.IGNORECASE | re.DOTALL
-	)
+)
 CLASS_ATTR_RE = re.compile(r"\sclass\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
 TRIGGER_ATTR_RE = re.compile(r"\strigger\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
 DATA_V_ATTR_RE = re.compile(r"\sdata-v-[a-z0-9_-]+\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
@@ -45,9 +45,8 @@ DATA_USER_ID_ATTR_RE = re.compile(r"\sdata-user-id\s*=\s*(\"[^\"]*\"|'[^']*')", 
 DATA_XSEC_TOKEN_ATTR_RE = re.compile(r"\sdata-xsec-token\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
 DATA_XSEC_SOURCE_ATTR_RE = re.compile(r"\sdata-xsec-source\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
 SELECTED_DISABLED_SEARCH_ATTR_RE = re.compile(
-	r"\sselected-disabled-search\s*=\s*(\"[^\"]*\"|'[^']*')",
-	re.IGNORECASE | re.DOTALL
-	)
+	r"\sselected-disabled-search\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL
+)
 ID_ATTR_RE = re.compile(r"\sid\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
 TRACK_DATA_ATTR_RE = re.compile(r"\strack-data\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
 POINTS_ATTR_RE = re.compile(r"\spoints\s*=\s*(\"[^\"]*\"|'[^']*')", re.IGNORECASE | re.DOTALL)
@@ -94,9 +93,9 @@ class ChunkResult(TypedDict):
 
 
 def randomize_delay(base_seconds: float,
-		jitter_ratio: float = 0.35,
-		min_seconds: float = 0.01,
-		max_seconds: float | None = None, ) -> float:
+                    jitter_ratio: float = 0.35,
+                    min_seconds: float = 0.01,
+                    max_seconds: float | None = None, ) -> float:
 	if base_seconds <= 0:
 		return 0.0
 	jitter = base_seconds * jitter_ratio
@@ -107,12 +106,29 @@ def randomize_delay(base_seconds: float,
 
 
 def sleep_randomized(base_seconds: float,
-		jitter_ratio: float = 0.35,
-		min_seconds: float = 0.01,
-		max_seconds: float | None = None, ) -> None:
+                     jitter_ratio: float = 0.35,
+                     min_seconds: float = 0.01,
+                     max_seconds: float | None = None, ) -> None:
 	time.sleep(
 		randomize_delay(base_seconds, jitter_ratio=jitter_ratio, min_seconds=min_seconds, max_seconds=max_seconds)
-		)
+	)
+
+
+def format_log_value(value: object) -> str:
+	if isinstance(value, Path):
+		return str(value)
+	if isinstance(value, (str, int, float, bool)) or value is None:
+		return json.dumps(value, ensure_ascii=False)
+	return json.dumps(value, ensure_ascii=False, default=str)
+
+
+def log_event(stage: str, **kwargs: object) -> None:
+	timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+	if kwargs:
+		detail_text = ", ".join(f"{key}={format_log_value(value)}" for key, value in kwargs.items())
+		print(f"[{timestamp}] [{stage}] {detail_text}", flush=True)
+		return
+	print(f"[{timestamp}] [{stage}]", flush=True)
 
 
 ACTIVITY_BLOCK_RE = re.compile(
@@ -269,14 +285,14 @@ class MediaCollector(HTMLParser):
 
 class XSelectionEvent(ctypes.Structure):
 	_fields_ = [("type", ctypes.c_int),
-		("serial", ctypes.c_ulong),
-		("send_event", ctypes.c_int),
-		("display", ctypes.c_void_p),
-		("requestor", ctypes.c_ulong),
-		("selection", ctypes.c_ulong),
-		("target", ctypes.c_ulong),
-		("property", ctypes.c_ulong),
-		("time", ctypes.c_ulong), ]
+	            ("serial", ctypes.c_ulong),
+	            ("send_event", ctypes.c_int),
+	            ("display", ctypes.c_void_p),
+	            ("requestor", ctypes.c_ulong),
+	            ("selection", ctypes.c_ulong),
+	            ("target", ctypes.c_ulong),
+	            ("property", ctypes.c_ulong),
+	            ("time", ctypes.c_ulong), ]
 
 
 class XEvent(ctypes.Union):
@@ -387,7 +403,7 @@ def activate_window(window_id: str) -> None:
 
 
 def spawn_background_process(command: list[str], *, env: dict[str, str] | None = None, stdout=None, stderr=None, ) -> \
-subprocess.Popen[bytes]:
+		subprocess.Popen[bytes]:
 	return subprocess.Popen(
 		command,
 		env=env,
@@ -399,10 +415,10 @@ subprocess.Popen[bytes]:
 
 
 def open_url(url: str,
-		*,
-		new_window: bool = False,
-		profile_dir: Path | None = None,
-		env: dict[str, str] | None = None, ) -> None:
+             *,
+             new_window: bool = False,
+             profile_dir: Path | None = None,
+             env: dict[str, str] | None = None, ) -> None:
 	chrome = shutil_which("google-chrome") or shutil_which("google-chrome-stable") or shutil_which("chromium")
 	if not chrome:
 		raise SystemExit("no Chrome/Chromium binary found")
@@ -446,6 +462,7 @@ def require_x11_session() -> None:
 
 
 def extract_urls(raw_inputs: list[str]) -> list[str]:
+	log_event("extract_urls.start", input_count=len(raw_inputs))
 	urls: list[str] = []
 	seen: set[str] = set()
 	for raw_input in raw_inputs:
@@ -458,7 +475,9 @@ def extract_urls(raw_inputs: list[str]) -> list[str]:
 				seen.add(url)
 				urls.append(url)
 	if not urls:
+		log_event("extract_urls.empty")
 		raise SystemExit("no URL found in input")
+	log_event("extract_urls.done", url_count=len(urls), urls=urls)
 	return urls
 
 
@@ -497,6 +516,12 @@ class RnOllamaClient:
 	         chunk_size: int = 30000,
 	         system_prompt: str = "",
 	         images: list[str] | None = None) -> str:
+		log_event(
+			"ollama.chat.start",
+			model=self.model,
+			endpoint=self.url,
+			chunk_size=chunk_size,
+			image_count=len(images or []), )
 		messages: list[dict[str, object]] = []
 		if system_prompt:
 			messages.append({"role": "system", "content": system_prompt})
@@ -533,9 +558,11 @@ class RnOllamaClient:
 			if isinstance(message, dict):
 				content = message.get("content")
 				if isinstance(content, str):
+					log_event("ollama.chat.done", model=self.model, content_length=len(content))
 					return content
 			response_text = payload_obj.get("response")
 			if isinstance(response_text, str):
+				log_event("ollama.chat.done", model=self.model, content_length=len(response_text))
 				return response_text
 		raise RuntimeError(f"unexpected ollama-compatible response: {raw_text[:400]}")
 
@@ -546,6 +573,7 @@ class NoRedirectHandler(request.HTTPRedirectHandler):
 
 
 def precheck_url(url: str, timeout: float = 10.0) -> PrecheckResult:
+	log_event("precheck.start", url=url, timeout=timeout)
 	opener = request.build_opener(NoRedirectHandler)
 	req = request.Request(
 		url, method="HEAD", headers={
@@ -561,17 +589,22 @@ def precheck_url(url: str, timeout: float = 10.0) -> PrecheckResult:
 		status_code = exc.code
 		location = exc.headers.get("Location", "")
 	except error.URLError:
+		log_event("precheck.network_error", url=url)
 		return PrecheckResult(
 			skipped_capture=False, status_code=None, location="", result_summary="", )
 	except Exception:
+		log_event("precheck.unknown_error", url=url)
 		return PrecheckResult(
 			skipped_capture=False, status_code=None, location="", result_summary="", )
 	if status_code == HTTPStatus.FOUND:
+		log_event("precheck.skip", url=url, status_code=status_code, location=location)
 		return PrecheckResult(
 			skipped_capture=True, status_code=status_code, location=location, result_summary="页面不存在或已下架", )
 	if status_code == HTTPStatus.NOT_FOUND and ("/404" in url or "/404" in location):
+		log_event("precheck.skip", url=url, status_code=status_code, location=location)
 		return PrecheckResult(
 			skipped_capture=True, status_code=status_code, location=location, result_summary="页面不存在或已下架", )
+	log_event("precheck.done", url=url, status_code=status_code, location=location, skipped_capture=False)
 	return PrecheckResult(
 		skipped_capture=False, status_code=status_code, location=location, result_summary="", )
 
@@ -579,15 +612,15 @@ def precheck_url(url: str, timeout: float = 10.0) -> PrecheckResult:
 def load_rgb_image(path: Path) -> np.ndarray:
 	probe = run(
 		["ffprobe",
-			"-v",
-			"error",
-			"-select_streams",
-			"v:0",
-			"-show_entries",
-			"stream=width,height",
-			"-of",
-			"csv=s=x:p=0",
-			str(path), ]
+		 "-v",
+		 "error",
+		 "-select_streams",
+		 "v:0",
+		 "-show_entries",
+		 "stream=width,height",
+		 "-of",
+		 "csv=s=x:p=0",
+		 str(path), ]
 	)
 	width_text, height_text = probe.stdout.strip().split("x")
 	width = int(width_text)
@@ -601,13 +634,13 @@ def load_rgb_image(path: Path) -> np.ndarray:
 
 
 def sample_region(image: np.ndarray,
-		*,
-		x_start_ratio: float,
-		x_end_ratio: float,
-		y_start_ratio: float,
-		y_end_ratio: float,
-		sample_height: int = 72,
-		sample_width: int = 72, ) -> np.ndarray:
+                  *,
+                  x_start_ratio: float,
+                  x_end_ratio: float,
+                  y_start_ratio: float,
+                  y_end_ratio: float,
+                  sample_height: int = 72,
+                  sample_width: int = 72, ) -> np.ndarray:
 	height, width, _ = image.shape
 	x0 = max(0, min(width - 1, int(width * x_start_ratio)))
 	x1 = max(x0 + 1, min(width, int(width * x_end_ratio)))
@@ -779,14 +812,14 @@ class XController:
 		self.lib_x11.XKeysymToKeycode.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
 		self.lib_x11.XKeysymToKeycode.restype = ctypes.c_uint
 		self.lib_x11.XWarpPointer.argtypes = [ctypes.c_void_p,
-			ctypes.c_ulong,
-			ctypes.c_ulong,
-			ctypes.c_int,
-			ctypes.c_int,
-			ctypes.c_uint,
-			ctypes.c_uint,
-			ctypes.c_int,
-			ctypes.c_int, ]
+		                                      ctypes.c_ulong,
+		                                      ctypes.c_ulong,
+		                                      ctypes.c_int,
+		                                      ctypes.c_int,
+		                                      ctypes.c_uint,
+		                                      ctypes.c_uint,
+		                                      ctypes.c_int,
+		                                      ctypes.c_int, ]
 		self.lib_x11.XWarpPointer.restype = ctypes.c_int
 		self.lib_x11.XFlush.argtypes = [ctypes.c_void_p]
 		self.lib_x11.XFlush.restype = ctypes.c_int
@@ -874,10 +907,10 @@ def comment_panel_point(geometry: dict[str, int], y_ratio: float = 0.72) -> tupl
 
 
 def expand_visible_reply_links(window_id: str,
-		geometry: dict[str, int],
-		controller: XController,
-		screenshot_dir: Path,
-		screenshot_index: int, ) -> int:
+                               geometry: dict[str, int],
+                               controller: XController,
+                               screenshot_dir: Path,
+                               screenshot_index: int, ) -> int:
 	probe_path = screenshot_dir / f"_expand_probe_{screenshot_index}.png"
 	click_targets: list[tuple[int, int]] = []
 	skipped_targets: list[tuple[int, int]] = []
@@ -893,12 +926,12 @@ def expand_visible_reply_links(window_id: str,
 			if any(
 					abs(target.x - clicked_x) <= 14 and abs(target.y - clicked_y) <= 10 for clicked_x, clicked_y in
 					click_targets
-					):
+			):
 				continue
 			if any(
 					abs(target.x - skipped_x) <= 20 and abs(target.y - skipped_y) <= 18 for skipped_x, skipped_y in
 					skipped_targets
-					):
+			):
 				continue
 			if target.width < 68 and target.height > 14:
 				skipped_targets.append((target.x, target.y))
@@ -1005,9 +1038,8 @@ def write_session_state(session_name: str, state: XephyrSessionState) -> None:
 	session_dir = session_dir_for(session_name)
 	session_dir.mkdir(parents=True, exist_ok=True)
 	session_state_path(session_dir).write_text(
-		json.dumps(asdict(state), ensure_ascii=False, indent=2),
-		encoding="utf-8"
-		)
+		json.dumps(asdict(state), ensure_ascii=False, indent=2), encoding="utf-8"
+	)
 
 
 def session_display_env(display_name: str) -> dict[str, str]:
@@ -1072,10 +1104,22 @@ def ensure_xephyr_session(args: argparse.Namespace) -> tuple[XephyrSessionState,
 	session_name = effective_xephyr_session_name(args)
 	state = load_session_state(session_name)
 	if state is not None:
+		log_event(
+			"xephyr.session.reuse",
+			session_name=session_name,
+			display=state.display,
+			profile_dir=state.profile_dir
+			)
 		return state, False
 	profile_dir = Path(args.chrome_profile_dir) if args.chrome_profile_dir else default_profile_dir_for_session(
 		session_name
-		)
+	)
+	log_event(
+		"xephyr.session.create",
+		session_name=session_name,
+		display=args.xephyr_display,
+		screen=args.xephyr_screen,
+		profile_dir=profile_dir, )
 	return start_xephyr_session(session_name, args.xephyr_display, args.xephyr_screen, profile_dir), True
 
 
@@ -1109,6 +1153,7 @@ def wait_for_target_window(before_ids: set[str], wait_seconds: float, hint: str 
 
 
 def ensure_login_window(session_state: XephyrSessionState, url: str) -> None:
+	log_event("xephyr.login_window.start", session_name=session_state.name, display=session_state.display, url=url)
 	display_env = session_display_env(session_state.display)
 	windows_before = list_chrome_windows()
 	open_url(
@@ -1116,12 +1161,20 @@ def ensure_login_window(session_state: XephyrSessionState, url: str) -> None:
 	sleep_randomized(2.0, jitter_ratio=0.25, min_seconds=1.4, max_seconds=2.8)
 	if not list_chrome_windows():
 		raise SystemExit("failed to open Chrome inside Xephyr session")
+	log_event("xephyr.login_window.done", session_name=session_state.name, had_windows=bool(windows_before))
 
 
 def maybe_rerun_in_xephyr(args: argparse.Namespace) -> int | None:
 	wants_xephyr = bool(args.inputs) or args.prepare_login or bool(args.close_xephyr_session) or args.xephyr or bool(
 		args.xephyr_session
-		)
+	)
+	log_event(
+		"xephyr.rerun.check",
+		wants_xephyr=wants_xephyr,
+		input_count=len(args.inputs),
+		prepare_login=args.prepare_login,
+		close_session=args.close_xephyr_session,
+		current_display=os.environ.get("DISPLAY", ""), )
 	if not wants_xephyr:
 		return None
 	if args.close_xephyr_session:
@@ -1142,6 +1195,7 @@ def maybe_rerun_in_xephyr(args: argparse.Namespace) -> int | None:
 		print(f"display={session_state.display}")
 		print(f"profile_dir={session_state.profile_dir}")
 		print("login in the Xephyr window, then rerun the same command")
+		log_event("xephyr.session.created_exit", session_name=session_state.name, display=session_state.display)
 		return 0
 	if args.prepare_login:
 		original_display = os.environ.get("DISPLAY")
@@ -1156,14 +1210,18 @@ def maybe_rerun_in_xephyr(args: argparse.Namespace) -> int | None:
 		print(f"xephyr session ready: {session_state.name}")
 		print(f"display={session_state.display}")
 		print(f"profile_dir={session_state.profile_dir}")
+		log_event("xephyr.prepare_login.done", session_name=session_state.name, display=session_state.display)
 		return 0
 	if current_display == session_state.display:
+		log_event("xephyr.rerun.skip", reason="already_in_session_display", display=current_display)
 		return None
 	rerun_args = [value for value in sys.argv[1:] if value != "--xephyr"]
 	if "--prepare-login" in rerun_args:
 		rerun_args.remove("--prepare-login")
+	log_event("xephyr.rerun.exec", display=session_state.display, rerun_args=rerun_args)
 	rerun = subprocess.run(
 		[sys.executable, __file__, *rerun_args], env=session_display_env(session_state.display), check=False, )
+	log_event("xephyr.rerun.done", returncode=rerun.returncode)
 	return rerun.returncode
 
 
@@ -1263,40 +1321,40 @@ def read_clipboard_text(timeout_seconds: float = 5.0) -> str:
 	lib_x11.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
 	lib_x11.XDefaultRootWindow.restype = ctypes.c_ulong
 	lib_x11.XCreateSimpleWindow.argtypes = [ctypes.c_void_p,
-		ctypes.c_ulong,
-		ctypes.c_int,
-		ctypes.c_int,
-		ctypes.c_uint,
-		ctypes.c_uint,
-		ctypes.c_uint,
-		ctypes.c_ulong,
-		ctypes.c_ulong, ]
+	                                        ctypes.c_ulong,
+	                                        ctypes.c_int,
+	                                        ctypes.c_int,
+	                                        ctypes.c_uint,
+	                                        ctypes.c_uint,
+	                                        ctypes.c_uint,
+	                                        ctypes.c_ulong,
+	                                        ctypes.c_ulong, ]
 	lib_x11.XCreateSimpleWindow.restype = ctypes.c_ulong
 	lib_x11.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
 	lib_x11.XInternAtom.restype = ctypes.c_ulong
 	lib_x11.XConvertSelection.argtypes = [ctypes.c_void_p,
-		ctypes.c_ulong,
-		ctypes.c_ulong,
-		ctypes.c_ulong,
-		ctypes.c_ulong,
-		ctypes.c_ulong, ]
+	                                      ctypes.c_ulong,
+	                                      ctypes.c_ulong,
+	                                      ctypes.c_ulong,
+	                                      ctypes.c_ulong,
+	                                      ctypes.c_ulong, ]
 	lib_x11.XConvertSelection.restype = ctypes.c_int
 	lib_x11.XPending.argtypes = [ctypes.c_void_p]
 	lib_x11.XPending.restype = ctypes.c_int
 	lib_x11.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.POINTER(XEvent)]
 	lib_x11.XNextEvent.restype = ctypes.c_int
 	lib_x11.XGetWindowProperty.argtypes = [ctypes.c_void_p,
-		ctypes.c_ulong,
-		ctypes.c_ulong,
-		ctypes.c_long,
-		ctypes.c_long,
-		ctypes.c_int,
-		ctypes.c_ulong,
-		ctypes.POINTER(ctypes.c_ulong),
-		ctypes.POINTER(ctypes.c_int),
-		ctypes.POINTER(ctypes.c_ulong),
-		ctypes.POINTER(ctypes.c_ulong),
-		ctypes.POINTER(ctypes.c_void_p), ]
+	                                       ctypes.c_ulong,
+	                                       ctypes.c_ulong,
+	                                       ctypes.c_long,
+	                                       ctypes.c_long,
+	                                       ctypes.c_int,
+	                                       ctypes.c_ulong,
+	                                       ctypes.POINTER(ctypes.c_ulong),
+	                                       ctypes.POINTER(ctypes.c_int),
+	                                       ctypes.POINTER(ctypes.c_ulong),
+	                                       ctypes.POINTER(ctypes.c_ulong),
+	                                       ctypes.POINTER(ctypes.c_void_p), ]
 	lib_x11.XGetWindowProperty.restype = ctypes.c_int
 	lib_x11.XDeleteProperty.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong]
 	lib_x11.XDeleteProperty.restype = ctypes.c_int
@@ -1592,6 +1650,12 @@ def analyze_html_fields(html_text: str, page_url: str, client: RnOllamaClient) -
 	html_path.write_text(compact_html, encoding="utf-8")
 	
 	html_chunks = split_html_chunks(compact_html, chunk_size=chunk_size)
+	log_event(
+		"analyze_html.start",
+		url=page_url,
+		html_length=len(compact_html),
+		chunk_count=len(html_chunks),
+		share_count=share_count, )
 	system_prompt = """
     你只返回 JSON，不要解释，不要 markdown。请基于下面这份“评论已经展开后的整页 HTML 分段”提取结构化信息，必须返回 JSON 对象。
 
@@ -1636,6 +1700,7 @@ def analyze_html_fields(html_text: str, page_url: str, client: RnOllamaClient) -
     """
 	chunk_results: list[ChunkResult] = []
 	for index, html_chunk in enumerate(html_chunks, start=1):
+		log_event("analyze_html.chunk.start", url=page_url, chunk_index=index, chunk_total=len(html_chunks))
 		user_prompt = f"""
 URL: {page_url}
 当前分段: {index}/{len(html_chunks)}
@@ -1655,12 +1720,18 @@ HTML:
 				"视频": normalize_media_list_field(parsed.get("视频")),
 			}
 		)
+		log_event(
+			"analyze_html.chunk.done",
+			url=page_url,
+			chunk_index=index,
+			image_count=len(chunk_results[-1]["图片"]),
+			video_count=len(chunk_results[-1]["视频"]), )
 	title = ""
 	for chunk_result in chunk_results:
 		if chunk_result["title"]:
 			title = chunk_result["title"]
 			break
-	return {
+	result = {
 		"title": title,
 		"正文": merge_text_field([item["正文"] for item in chunk_results]),
 		"评论": merge_text_field([item["评论"] for item in chunk_results]),
@@ -1668,6 +1739,13 @@ HTML:
 		"图片": merge_media_list_field([item["图片"] for item in chunk_results]),
 		"视频": merge_media_list_field([item["视频"] for item in chunk_results]),
 	}
+	log_event(
+		"analyze_html.done",
+		url=page_url,
+		title_found=bool(result["title"]),
+		image_count=len(result["图片"]),
+		video_count=len(result["视频"]), )
+	return result
 
 
 def resolve_media_reference(reference: str, page_url: str, html_path: Path) -> str:
@@ -1828,11 +1906,24 @@ def write_manifest(manifest: dict[str, object], item_dir: Path) -> dict[str, obj
 
 def process_result(result: CaptureResult, client: RnOllamaClient, *, image_limit: int, video_limit: int, ) -> dict[
 	str, object]:
+	log_event(
+		"process_result.start",
+		item_index=result.index,
+		url=result.url,
+		skipped_capture=result.skipped_capture,
+		window_found=result.window is not None, )
 	manifest = build_manifest(result, client)
 	if result.skipped_capture or result.window is None:
+		log_event("process_result.skip", item_index=result.index, url=result.url, reason=result.result_summary)
 		return write_manifest(manifest, result.item_dir)
 	try:
 		html_path, export_method = export_current_html(result)
+		log_event(
+			"process_result.html_exported",
+			item_index=result.index,
+			url=result.url,
+			html_path=html_path,
+			export_method=export_method, )
 		manifest["html_path"] = str(html_path)
 		manifest["html_export_method"] = export_method
 		html_text = html_path.read_text(encoding="utf-8", errors="replace")
@@ -1842,13 +1933,20 @@ def process_result(result: CaptureResult, client: RnOllamaClient, *, image_limit
 		manifest["评论"] = structured_fields["评论"]
 		manifest["互动数据"] = structured_fields["互动数据"]
 		image_candidates = [MediaCandidate(kind="image", source=image_url, resolved=image_url) for image_url in
-			structured_fields["图片"][:image_limit]]
+		                    structured_fields["图片"][:image_limit]]
 		manifest["图片"] = download_images(image_candidates, result.url, result.item_dir, image_limit)
 		manifest["视频"] = structured_fields["视频"][:video_limit]
 		manifest["result_summary"] = "expanded html exported and parsed by ollama-compatible model"
+		log_event(
+			"process_result.done",
+			item_index=result.index,
+			url=result.url,
+			image_count=len(manifest["图片"]),
+			video_count=len(manifest["视频"]), )
 	except Exception as exc:  # noqa: BLE001
 		manifest["parse_error"] = str(exc)
 		manifest["result_summary"] = "html export or ollama-compatible parsing failed"
+		log_event("process_result.error", item_index=result.index, url=result.url, error=str(exc))
 	return write_manifest(manifest, result.item_dir)
 
 
@@ -1878,14 +1976,14 @@ def build_report(manifests: list[dict[str, object]], root_dir: Path) -> str:
 	for manifest in manifests:
 		lines.extend(
 			[f"## Item {manifest.get('item_index')}",
-				"",
-				f"- URL: {manifest.get('url', '')}",
-				f"- Output dir: {relative_path_text(str(manifest.get('output_dir', '')), root_dir) or 'none'}",
-				f"- HTML: {relative_path_text(str(manifest.get('html_path', '')), root_dir) or 'none'}",
-				f"- Export method: {manifest.get('html_export_method', '') or 'none'}",
-				f"- Model: {manifest.get('ollama_model', '') or 'none'}",
-				f"- Endpoint: {manifest.get('ollama_endpoint', '') or 'none'}",
-				f"- Result: {manifest.get('result_summary', '') or 'pending'}", ]
+			 "",
+			 f"- URL: {manifest.get('url', '')}",
+			 f"- Output dir: {relative_path_text(str(manifest.get('output_dir', '')), root_dir) or 'none'}",
+			 f"- HTML: {relative_path_text(str(manifest.get('html_path', '')), root_dir) or 'none'}",
+			 f"- Export method: {manifest.get('html_export_method', '') or 'none'}",
+			 f"- Model: {manifest.get('ollama_model', '') or 'none'}",
+			 f"- Endpoint: {manifest.get('ollama_endpoint', '') or 'none'}",
+			 f"- Result: {manifest.get('result_summary', '') or 'pending'}", ]
 		)
 		if manifest.get("precheck_status_code") is not None:
 			lines.append(f"- HTTP precheck: {manifest.get('precheck_status_code')}")
@@ -1914,18 +2012,32 @@ def build_report(manifests: list[dict[str, object]], root_dir: Path) -> str:
 
 
 def capture_item(url: str,
-		item_index: int,
-		root_dir: Path,
-		wait_seconds: float,
-		window_hint: str,
-		skip_comment_scroll: bool,
-		max_pages: int,
-		scroll_steps: int,
-		chrome_profile_dir: Path | None, ) -> CaptureResult:
+                 item_index: int,
+                 root_dir: Path,
+                 wait_seconds: float,
+                 window_hint: str,
+                 skip_comment_scroll: bool,
+                 max_pages: int,
+                 scroll_steps: int,
+                 chrome_profile_dir: Path | None, ) -> CaptureResult:
+	log_event(
+		"capture_item.start",
+		item_index=item_index,
+		url=url,
+		wait_seconds=wait_seconds,
+		max_pages=max_pages,
+		scroll_steps=scroll_steps,
+		chrome_profile_dir=chrome_profile_dir, )
 	item_dir = root_dir / f"item_{item_index}"
 	item_dir.mkdir(parents=True, exist_ok=True)
 	precheck = precheck_url(url)
 	if precheck.skipped_capture:
+		log_event(
+			"capture_item.precheck_skip",
+			item_index=item_index,
+			url=url,
+			status_code=precheck.status_code,
+			location=precheck.location, )
 		manifest = {
 			"item_index": item_index,
 			"url": url,
@@ -1970,6 +2082,12 @@ def capture_item(url: str,
 	existing_window: ChromeWindow | None = None
 	if before_windows:
 		existing_window = choose_target_window(before_windows, window_hint or None, active_window_id, set())
+		log_event(
+			"capture_item.window.reuse",
+			item_index=item_index,
+			window_id=existing_window.window_id,
+			title=existing_window.title
+			)
 		activate_window(existing_window.window_id)
 		sleep_randomized(0.6, jitter_ratio=0.35, min_seconds=0.3, max_seconds=1.0)
 	open_url(url, new_window=not before_windows, profile_dir=chrome_profile_dir)
@@ -1978,12 +2096,18 @@ def capture_item(url: str,
 		jitter_ratio=0.2,
 		min_seconds=max(0.6, wait_seconds * 0.7),
 		max_seconds=max(wait_seconds + 1.2, wait_seconds * 1.3)
-		)
+	)
 	if existing_window is not None:
 		refreshed_window = get_window_by_id(existing_window.window_id)
 		target_window = refreshed_window or existing_window
 	else:
 		target_window = wait_for_target_window(before_ids, wait_seconds, window_hint or None)
+		log_event(
+			"capture_item.window.new",
+			item_index=item_index,
+			window_id=target_window.window_id,
+			title=target_window.title
+			)
 	activate_window(target_window.window_id)
 	screenshot_paths: list[Path] = []
 	seen_hashes: set[str] = set()
@@ -2002,6 +2126,7 @@ def capture_item(url: str,
 		stagnant_rounds = 0
 		tail_probe_rounds = 0
 		while page_index < max_pages:
+			log_event("capture_item.page.start", item_index=item_index, url=url, page_index=page_index + 1)
 			expanded_count = expand_visible_reply_links(
 				target_window.window_id, geometry, controller, temp_capture_dir, page_index + 1, )
 			scroll_x, scroll_y = comment_panel_point(geometry)
@@ -2068,6 +2193,13 @@ def capture_item(url: str,
 			previous_comment_sample = comment_sample
 			tail_probe_rounds = 0
 			page_index += 1
+			log_event(
+				"capture_item.page.done",
+				item_index=item_index,
+				url=url,
+				page_index=page_index,
+				expanded_count=expanded_count
+				)
 			next_page.unlink(missing_ok=True)
 			if skip_comment_scroll:
 				stop_reason = "skip_comment_scroll enabled"
@@ -2078,8 +2210,16 @@ def capture_item(url: str,
 			stop_reason = f"reached max_pages={max_pages}"
 	except Exception as exc:  # noqa: BLE001
 		interaction_error = str(exc)
+		log_event("capture_item.error", item_index=item_index, url=url, error=interaction_error)
 	finally:
 		shutil.rmtree(temp_capture_dir, ignore_errors=True)
+	log_event(
+		"capture_item.done",
+		item_index=item_index,
+		url=url,
+		stop_reason=stop_reason,
+		interaction_error=interaction_error,
+		page_count=page_index, )
 	manifest = {
 		"item_index": item_index,
 		"url": url,
@@ -2124,17 +2264,13 @@ def main() -> int:
 	)
 	parser.add_argument("inputs", nargs="*", help="One or more URLs or raw text blocks containing URLs")
 	parser.add_argument(
-		"--out-dir",
-		default="",
-		help="Directory for html export, downloaded images, manifests, and report"
-		)
+		"--out-dir", default="", help="Directory for html export, downloaded images, manifests, and report"
+	)
 	parser.add_argument("--wait-seconds", type=float, default=8.0, help="Wait after opening the URL")
 	parser.add_argument("--window-hint", default="", help="Prefer a Chrome window whose title contains this text")
 	parser.add_argument(
-		"--skip-comment-scroll",
-		action="store_true",
-		help="Only capture the initial page before html export"
-		)
+		"--skip-comment-scroll", action="store_true", help="Only capture the initial page before html export"
+	)
 	parser.add_argument("--max-pages", type=int, default=40, help="Maximum internal scan pages for one link")
 	parser.add_argument("--scroll-steps", type=int, default=10, help="Mouse-wheel steps between screenshots")
 	parser.add_argument("--chrome-profile-dir", default="", help="Use a dedicated Chrome profile directory")
@@ -2142,44 +2278,44 @@ def main() -> int:
 		"--xephyr",
 		action="store_true",
 		help="Deprecated compatibility flag; capture now prefers the persistent chrome-extractor-rn-main Xephyr session by default"
-		)
+	)
 	parser.add_argument(
 		"--xephyr-session",
 		default="",
 		help="Persistent Xephyr session name to reuse login state, defaulting to chrome-extractor-rn-main"
-		)
+	)
 	parser.add_argument("--xephyr-display", default=":99", help="Nested Xephyr display name")
 	parser.add_argument("--xephyr-screen", default="1400x2200", help="Nested Xephyr screen size")
 	parser.add_argument(
-		"--prepare-login",
-		action="store_true",
-		help="Start or reuse a Xephyr session and open Chrome for manual login"
-		)
+		"--prepare-login", action="store_true", help="Start or reuse a Xephyr session and open Chrome for manual login"
+	)
 	parser.add_argument("--login-url", default="", help="Optional URL to open while preparing login")
 	parser.add_argument("--close-xephyr-session", default="", help="Close a persistent Xephyr session by name")
 	parser.add_argument(
-		"--ollama-base-url",
-		default="http://127.0.0.1:11434",
-		help="Base URL for the Ollama-compatible endpoint"
-		)
+		"--ollama-base-url", default="http://127.0.0.1:11434", help="Base URL for the Ollama-compatible endpoint"
+	)
 	parser.add_argument(
-		"--ollama-api-path",
-		default="/api/chat",
-		help="API path for the Ollama-compatible chat endpoint"
-		)
+		"--ollama-api-path", default="/api/chat", help="API path for the Ollama-compatible chat endpoint"
+	)
 	parser.add_argument("--ollama-model", default="gemma4:26b", help="Model name for the Ollama-compatible endpoint")
 	parser.add_argument(
-		"--ollama-timeout",
-		type=float,
-		default=180.0,
-		help="Timeout for each Ollama-compatible request"
-		)
+		"--ollama-timeout", type=float, default=180.0, help="Timeout for each Ollama-compatible request"
+	)
 	parser.add_argument("--image-limit", type=int, default=8, help="Maximum images to download")
 	parser.add_argument("--video-limit", type=int, default=4, help="Maximum video urls to keep")
 	args = parser.parse_args()
+	log_event(
+		"main.args",
+		input_count=len(args.inputs),
+		out_dir=args.out_dir,
+		xephyr_session=args.xephyr_session,
+		prepare_login=args.prepare_login,
+		ollama_model=args.ollama_model,
+		ollama_base_url=args.ollama_base_url, )
 	
 	rerun_code = maybe_rerun_in_xephyr(args)
 	if rerun_code is not None:
+		log_event("main.rerun_exit", rerun_code=rerun_code)
 		return rerun_code
 	
 	require_binary("wmctrl")
@@ -2189,6 +2325,7 @@ def main() -> int:
 	require_binary("ffmpeg")
 	require_binary("ffprobe")
 	require_x11_session()
+	log_event("main.environment_ready")
 	
 	if args.prepare_login or args.close_xephyr_session:
 		return 0
@@ -2208,6 +2345,7 @@ def main() -> int:
 		model=args.ollama_model,
 		timeout=args.ollama_timeout, )
 	urls = extract_urls(args.inputs)
+	log_event("main.urls_ready", url_count=len(urls), out_dir=out_dir, chrome_profile_dir=chrome_profile_dir)
 	results = [capture_item(
 		url,
 		index,
@@ -2218,9 +2356,11 @@ def main() -> int:
 		args.max_pages,
 		args.scroll_steps,
 		chrome_profile_dir, ) for index, url in enumerate(urls, start=1)]
+	log_event("main.capture_done", result_count=len(results))
 	manifests = [process_result(
 		result, client, image_limit=args.image_limit, video_limit=args.video_limit, ) for result in results]
 	(out_dir / "REPORT.md").write_text(build_report(manifests, out_dir), encoding="utf-8")
+	log_event("main.report_done", manifest_count=len(manifests), report_path=out_dir / "REPORT.md")
 	print(str(out_dir))
 	return 0
 
