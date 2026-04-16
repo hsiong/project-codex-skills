@@ -14,12 +14,14 @@ Use this skill for tasks like:
 ## Rules
 
 - `chrome-extractor-rn-v2` is an independent skill. Do not treat it as depending on `chrome-extractor-rn`.
+- Keep the current v2 framework. Replace the parsing stage only; do not rewrite the whole flow into a different architecture.
 - Keep the local GUI Chrome workflow and preserve the existing comment expansion logic, including visible `展开 n 条回复` actions and comment-panel scrolling.
 - After comments and replies are expanded as far as the page allows, export the current page HTML and use that HTML as the primary analysis input.
 - Do not switch the parsing stage to screenshots, `view_image`, hardcoded DOM extraction, `curl`, CDP scraping, or headless Chrome.
 - Send the expanded HTML to an Ollama-compatible model endpoint to extract `title`、`正文`、`评论`、`互动数据` and media information.
 - Default to `qwen3.5 27b`, but allow the model name and compatible endpoint address to follow user-provided arguments.
 - Image recognition must also use the same Ollama-compatible protocol. Later endpoints may differ by base URL, but the request/response protocol stays Ollama-compatible.
+- Treat image and video extraction as model-side analysis from the HTML/media references, not screenshot OCR.
 - For videos, only recognize the visible cover, poster, or current frame that is actually available to the model input. Do not infer unseen content.
 - `title`、`正文`、`评论`、`互动数据` must stay close to the source content. Do not rewrite them into polished prose.
 - Split `互动数据` by conversation block with fenced code blocks, for example:

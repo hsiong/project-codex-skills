@@ -2,20 +2,38 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import ctypes
 import hashlib
+import html
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, asdict
+from html.parser import HTMLParser
 from http import HTTPStatus
 from pathlib import Path
-from urllib import error, request
+from urllib import error, parse, request
 
 import numpy as np
+
+
+USER_AGENT = "Mozilla/5.0"
+SCRIPT_STYLE_RE = re.compile(r"<(script|style)\b.*?</\1>", re.IGNORECASE | re.DOTALL)
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+MEDIA_SKIP_PATTERNS = (
+    "avatar",
+    "emoji",
+    "icon",
+    "logo",
+    "sprite",
+    "badge",
+    "favicon",
+)
 
 
 @dataclass
@@ -73,6 +91,79 @@ class ExpandReplyTarget:
     height: int
     is_occluded: bool
     occlusion_reason: str
+
+
+@dataclass
+class MediaCandidate:
+    kind: str
+    source: str
+    resolved: str
+
+
+class MediaCollector(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.image_refs: list[str] = []
+        self.video_refs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attr_map = {key.lower(): value or "" for key, value in attrs}
+        lower_tag = tag.lower()
+        if lower_tag == "img":
+            self._append_image(attr_map.get("src"))
+            self._append_image(attr_map.get("data-src"))
+            self._append_image(first_srcset_url(attr_map.get("srcset", "")))
+            return
+        if lower_tag == "video":
+            self._append_video(attr_map.get("poster"))
+            self._append_video(attr_map.get("src"))
+            return
+        if lower_tag == "source":
+            source_ref = attr_map.get("src", "")
+            type_hint = attr_map.get("type", "").lower()
+            if "video" in type_hint or looks_like_video_url(source_ref):
+                self._append_video(source_ref)
+            elif "image" in type_hint:
+                self._append_image(source_ref)
+            return
+        if lower_tag != "meta":
+            return
+        prop = (attr_map.get("property") or attr_map.get("name") or "").lower()
+        content = attr_map.get("content", "")
+        if prop in {"og:image", "twitter:image", "twitter:image:src"}:
+            self._append_image(content)
+        elif prop in {"og:video", "og:video:url", "twitter:player"}:
+            self._append_video(content)
+
+    def _append_image(self, value: str | None) -> None:
+        if value:
+            self.image_refs.append(value)
+
+    def _append_video(self, value: str | None) -> None:
+        if value:
+            self.video_refs.append(value)
+
+
+class XSelectionEvent(ctypes.Structure):
+    _fields_ = [
+        ("type", ctypes.c_int),
+        ("serial", ctypes.c_ulong),
+        ("send_event", ctypes.c_int),
+        ("display", ctypes.c_void_p),
+        ("requestor", ctypes.c_ulong),
+        ("selection", ctypes.c_ulong),
+        ("target", ctypes.c_ulong),
+        ("property", ctypes.c_ulong),
+        ("time", ctypes.c_ulong),
+    ]
+
+
+class XEvent(ctypes.Union):
+    _fields_ = [
+        ("type", ctypes.c_int),
+        ("xselection", XSelectionEvent),
+        ("pad", ctypes.c_long * 24),
+    ]
 
 
 def run(cmd: list[str], check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
@@ -283,6 +374,82 @@ def extract_urls(raw_inputs: list[str]) -> list[str]:
     if not urls:
         raise SystemExit("no URL found in input")
     return urls
+
+
+def first_srcset_url(value: str) -> str:
+    if not value:
+        return ""
+    first_item = value.split(",", 1)[0].strip()
+    return first_item.split()[0] if first_item else ""
+
+
+def looks_like_video_url(value: str) -> bool:
+    lowered = value.lower()
+    return any(lowered.endswith(suffix) for suffix in (".mp4", ".webm", ".m3u8", ".mov"))
+
+
+def looks_like_image_url(value: str) -> bool:
+    lowered = value.lower()
+    return any(lowered.endswith(suffix) for suffix in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"))
+
+
+def build_ollama_url(base_url: str, api_path: str) -> str:
+    return parse.urljoin(base_url.rstrip("/") + "/", api_path.lstrip("/"))
+
+
+class OllamaClient:
+    def __init__(self, base_url: str, api_path: str, model: str, timeout: float) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.api_path = api_path
+        self.model = model
+        self.timeout = timeout
+        self.url = build_ollama_url(self.base_url, self.api_path)
+
+    def chat(self, user_prompt: str, *, system_prompt: str = "", images: list[str] | None = None) -> str:
+        messages: list[dict[str, object]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        user_message: dict[str, object] = {"role": "user", "content": user_prompt}
+        if images:
+            user_message["images"] = images
+        messages.append(user_message)
+        payload = {
+            "model": self.model,
+            "stream": False,
+            "messages": messages,
+        }
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = request.Request(
+            self.url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with request.urlopen(req, timeout=self.timeout) as response:
+                raw_text = response.read().decode("utf-8", errors="replace")
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"ollama-compatible request failed: {exc.code} {detail}") from exc
+        except error.URLError as exc:
+            raise RuntimeError(f"ollama-compatible request failed: {exc}") from exc
+        try:
+            payload_obj = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"ollama-compatible response is not json: {raw_text[:400]}") from exc
+        if isinstance(payload_obj, dict):
+            message = payload_obj.get("message")
+            if isinstance(message, dict):
+                content = message.get("content")
+                if isinstance(content, str):
+                    return content
+            response_text = payload_obj.get("response")
+            if isinstance(response_text, str):
+                return response_text
+        raise RuntimeError(f"unexpected ollama-compatible response: {raw_text[:400]}")
 
 
 class NoRedirectHandler(request.HTTPRedirectHandler):
@@ -988,53 +1155,605 @@ def maybe_rerun_in_xephyr(args: argparse.Namespace) -> int | None:
     return rerun.returncode
 
 
-def build_report(results: list[CaptureResult], root_dir: Path) -> str:
+def key_event(controller: XController, key_name: str, is_press: bool) -> None:
+    if controller.backend == "python-xlib":
+        keysym = controller.XK.string_to_keysym(key_name)
+        keycode = controller.display.keysym_to_keycode(keysym)
+        event_type = controller.X.KeyPress if is_press else controller.X.KeyRelease
+        controller.xtest.fake_input(controller.display, event_type, keycode)
+        controller.display.sync()
+        return
+    keysym = controller.lib_x11.XStringToKeysym(key_name.encode("utf-8"))
+    keycode = controller.lib_x11.XKeysymToKeycode(controller.display, keysym)
+    controller.lib_xtst.XTestFakeKeyEvent(controller.display, keycode, 1 if is_press else 0, 0)
+    controller.lib_x11.XSync(controller.display, 0)
+
+
+def tap_key(controller: XController, key_name: str) -> None:
+    key_event(controller, key_name, True)
+    time.sleep(0.03)
+    key_event(controller, key_name, False)
+
+
+def key_combo(controller: XController, modifiers: list[str], key_name: str) -> None:
+    for modifier in modifiers:
+        key_event(controller, modifier, True)
+        time.sleep(0.02)
+    tap_key(controller, key_name)
+    time.sleep(0.02)
+    for modifier in reversed(modifiers):
+        key_event(controller, modifier, False)
+
+
+def char_key(char: str) -> tuple[str, bool]:
+    if "a" <= char <= "z":
+        return char, False
+    if "A" <= char <= "Z":
+        return char.lower(), True
+    if "0" <= char <= "9":
+        return char, False
+    mapping = {
+        " ": ("space", False),
+        ":": ("semicolon", True),
+        ";": ("semicolon", False),
+        "/": ("slash", False),
+        "?": ("slash", True),
+        ".": ("period", False),
+        ">": ("period", True),
+        ",": ("comma", False),
+        "<": ("comma", True),
+        "-": ("minus", False),
+        "_": ("minus", True),
+        "=": ("equal", False),
+        "+": ("equal", True),
+        "'": ("apostrophe", False),
+        '"': ("apostrophe", True),
+        "`": ("grave", False),
+        "~": ("grave", True),
+        "[": ("bracketleft", False),
+        "{": ("bracketleft", True),
+        "]": ("bracketright", False),
+        "}": ("bracketright", True),
+        "\\": ("backslash", False),
+        "|": ("backslash", True),
+        "!": ("1", True),
+        "@": ("2", True),
+        "#": ("3", True),
+        "$": ("4", True),
+        "%": ("5", True),
+        "^": ("6", True),
+        "&": ("7", True),
+        "*": ("8", True),
+        "(": ("9", True),
+        ")": ("0", True),
+        "\n": ("Return", False),
+    }
+    if char not in mapping:
+        raise RuntimeError(f"unsupported character for X11 typing: {char!r}")
+    return mapping[char]
+
+
+def type_text(controller: XController, text: str, delay_seconds: float = 0.025) -> None:
+    for char in text:
+        key_name, use_shift = char_key(char)
+        if use_shift:
+            key_event(controller, "Shift_L", True)
+        tap_key(controller, key_name)
+        if use_shift:
+            key_event(controller, "Shift_L", False)
+        time.sleep(delay_seconds)
+
+
+def read_clipboard_text(timeout_seconds: float = 5.0) -> str:
+    lib_x11 = ctypes.cdll.LoadLibrary("libX11.so.6")
+    lib_x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    lib_x11.XOpenDisplay.restype = ctypes.c_void_p
+    lib_x11.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+    lib_x11.XDefaultRootWindow.restype = ctypes.c_ulong
+    lib_x11.XCreateSimpleWindow.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_uint,
+        ctypes.c_uint,
+        ctypes.c_uint,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+    lib_x11.XCreateSimpleWindow.restype = ctypes.c_ulong
+    lib_x11.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    lib_x11.XInternAtom.restype = ctypes.c_ulong
+    lib_x11.XConvertSelection.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+    lib_x11.XConvertSelection.restype = ctypes.c_int
+    lib_x11.XPending.argtypes = [ctypes.c_void_p]
+    lib_x11.XPending.restype = ctypes.c_int
+    lib_x11.XNextEvent.argtypes = [ctypes.c_void_p, ctypes.POINTER(XEvent)]
+    lib_x11.XNextEvent.restype = ctypes.c_int
+    lib_x11.XGetWindowProperty.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_long,
+        ctypes.c_long,
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_ulong),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_ulong),
+        ctypes.POINTER(ctypes.c_ulong),
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
+    lib_x11.XGetWindowProperty.restype = ctypes.c_int
+    lib_x11.XDeleteProperty.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong]
+    lib_x11.XDeleteProperty.restype = ctypes.c_int
+    lib_x11.XDestroyWindow.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    lib_x11.XDestroyWindow.restype = ctypes.c_int
+    lib_x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    lib_x11.XCloseDisplay.restype = ctypes.c_int
+    lib_x11.XFlush.argtypes = [ctypes.c_void_p]
+    lib_x11.XFlush.restype = ctypes.c_int
+    lib_x11.XFree.argtypes = [ctypes.c_void_p]
+    lib_x11.XFree.restype = ctypes.c_int
+
+    display = lib_x11.XOpenDisplay(None)
+    if not display:
+        raise RuntimeError("failed to open X11 display for clipboard")
+
+    window = ctypes.c_ulong(0)
+    property_atom = ctypes.c_ulong(0)
+    try:
+        root = lib_x11.XDefaultRootWindow(display)
+        window = ctypes.c_ulong(lib_x11.XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0))
+        if not window.value:
+            raise RuntimeError("failed to create X11 window for clipboard")
+        clipboard_atom = lib_x11.XInternAtom(display, b"CLIPBOARD", 0)
+        utf8_atom = lib_x11.XInternAtom(display, b"UTF8_STRING", 0)
+        string_atom = lib_x11.XInternAtom(display, b"STRING", 0)
+        property_atom = ctypes.c_ulong(lib_x11.XInternAtom(display, b"CODEX_HTML_CLIPBOARD", 0))
+        targets = [utf8_atom, string_atom]
+        deadline = time.time() + timeout_seconds
+        for target_atom in targets:
+            lib_x11.XConvertSelection(display, clipboard_atom, target_atom, property_atom.value, window.value, 0)
+            lib_x11.XFlush(display)
+            while time.time() < deadline:
+                if lib_x11.XPending(display) <= 0:
+                    time.sleep(0.05)
+                    continue
+                event = XEvent()
+                lib_x11.XNextEvent(display, ctypes.byref(event))
+                if event.type != 31:
+                    continue
+                if event.xselection.property == 0:
+                    break
+                offset = 0
+                chunks: list[bytes] = []
+                while True:
+                    actual_type = ctypes.c_ulong()
+                    actual_format = ctypes.c_int()
+                    nitems = ctypes.c_ulong()
+                    bytes_after = ctypes.c_ulong()
+                    prop = ctypes.c_void_p()
+                    status = lib_x11.XGetWindowProperty(
+                        display,
+                        window.value,
+                        property_atom.value,
+                        offset,
+                        65536,
+                        0,
+                        0,
+                        ctypes.byref(actual_type),
+                        ctypes.byref(actual_format),
+                        ctypes.byref(nitems),
+                        ctypes.byref(bytes_after),
+                        ctypes.byref(prop),
+                    )
+                    if status != 0 or not prop.value:
+                        break
+                    if actual_format.value == 8:
+                        size = int(nitems.value)
+                    elif actual_format.value == 16:
+                        size = int(nitems.value) * 2
+                    else:
+                        size = int(nitems.value) * 4
+                    chunks.append(ctypes.string_at(prop, size))
+                    lib_x11.XFree(prop)
+                    if bytes_after.value == 0:
+                        break
+                    offset += max(1, size // 4)
+                lib_x11.XDeleteProperty(display, window.value, property_atom.value)
+                text = b"".join(chunks).decode("utf-8", errors="replace")
+                if text:
+                    return text
+        raise RuntimeError("clipboard did not return text")
+    finally:
+        if property_atom.value and window.value:
+            lib_x11.XDeleteProperty(display, window.value, property_atom.value)
+        if window.value:
+            lib_x11.XDestroyWindow(display, window.value)
+        lib_x11.XCloseDisplay(display)
+
+
+def wait_for_clipboard_markers(start_marker: str, end_marker: str, timeout_seconds: float = 8.0) -> str:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        clipboard_text = read_clipboard_text(timeout_seconds=2.0)
+        start_index = clipboard_text.find(start_marker)
+        end_index = clipboard_text.rfind(end_marker)
+        if start_index != -1 and end_index != -1 and end_index > start_index:
+            return clipboard_text[start_index + len(start_marker) : end_index].strip()
+        time.sleep(0.2)
+    raise RuntimeError("timed out waiting for HTML in clipboard")
+
+
+def export_html_with_devtools_console(window_id: str, item_dir: Path) -> tuple[Path, str]:
+    controller = XController()
+    start_marker = "__CODEX_HTML_BEGIN__"
+    end_marker = "__CODEX_HTML_END__"
+    command = (
+        f"copy('{start_marker}\\n'+document.documentElement.outerHTML+'\\n{end_marker}')"
+    )
+    activate_window(window_id)
+    time.sleep(0.4)
+    controller.press_key("Escape")
+    time.sleep(0.2)
+    key_combo(controller, ["Control_L", "Shift_L"], "j")
+    time.sleep(1.2)
+    key_combo(controller, ["Control_L"], "a")
+    time.sleep(0.1)
+    controller.press_key("BackSpace")
+    time.sleep(0.1)
+    type_text(controller, command)
+    tap_key(controller, "Return")
+    time.sleep(0.5)
+    html_text = wait_for_clipboard_markers(start_marker, end_marker)
+    key_combo(controller, ["Control_L", "Shift_L"], "j")
+    html_path = item_dir / "expanded_page.html"
+    html_path.write_text(html_text, encoding="utf-8")
+    return html_path, "devtools-console-copy"
+
+
+def export_current_html(result: CaptureResult) -> tuple[Path, str]:
+    if result.window is None:
+        raise RuntimeError("missing target chrome window")
+    return export_html_with_devtools_console(result.window.window_id, result.item_dir)
+
+
+def clean_html_for_model(raw_html: str, max_chars: int = 220000) -> str:
+    cleaned = HTML_COMMENT_RE.sub("", raw_html)
+    cleaned = SCRIPT_STYLE_RE.sub("", cleaned)
+    if len(cleaned) <= max_chars:
+        return cleaned
+    head_size = int(max_chars * 0.65)
+    tail_size = max_chars - head_size
+    return cleaned[:head_size] + "\n<!-- truncated -->\n" + cleaned[-tail_size:]
+
+
+def extract_json_object(raw_text: str) -> dict[str, object]:
+    candidates = [raw_text.strip()]
+    fenced_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", raw_text, re.DOTALL)
+    if fenced_match:
+        candidates.insert(0, fenced_match.group(1))
+    start = raw_text.find("{")
+    end = raw_text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidates.append(raw_text[start : end + 1])
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    raise RuntimeError(f"model did not return a json object: {raw_text[:600]}")
+
+
+def normalize_text_field(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        return "\n".join(item for item in (normalize_text_field(item) for item in value) if item)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value).strip()
+
+
+def analyze_html_fields(html_text: str, page_url: str, client: OllamaClient) -> dict[str, str]:
+    compact_html = clean_html_for_model(html_text)
+    system_prompt = """
+    你是网页内容抽取器。你只返回 JSON，不要解释，不要 markdown。
+        请基于下面这份“评论已经展开后的整页 HTML”提取结构化信息，必须返回 JSON 对象。
+    
+    要求：
+    1. JSON 只包含这 4 个键：title、正文、评论、互动数据
+    2. 结果尽量贴近原文，不要润色
+    3. `评论` 保留可见评论内容，尽量按条换行
+    4. `互动数据` 请按 conversation block 输出为 markdown fenced code blocks，例如：
+    ```text
+    - xxx
+    - xx
+    ```
+    ```text
+    - xxx
+    - xx
+    ```
+    5. 字段缺失时返回空字符串
+
+    """
+    user_prompt = f"""
+URL: {page_url}
+
+HTML:
+```html
+{compact_html}
+```"""
+    parsed = extract_json_object(client.chat(user_prompt, system_prompt=system_prompt))
+    return {
+        "title": normalize_text_field(parsed.get("title")),
+        "正文": normalize_text_field(parsed.get("正文")),
+        "评论": normalize_text_field(parsed.get("评论")),
+        "互动数据": normalize_text_field(parsed.get("互动数据")),
+    }
+
+
+def resolve_media_reference(reference: str, page_url: str, html_path: Path) -> str:
+    value = html.unescape(reference).strip()
+    if not value or value.startswith("javascript:"):
+        return ""
+    if value.startswith("data:"):
+        return value
+    parsed_ref = parse.urlparse(value)
+    if parsed_ref.scheme in {"http", "https"}:
+        return value
+    if parsed_ref.scheme == "file":
+        return parse.unquote(parsed_ref.path)
+    local_candidate = (html_path.parent / parse.unquote(value)).resolve()
+    if local_candidate.exists():
+        return str(local_candidate)
+    return parse.urljoin(page_url, value)
+
+
+def is_interesting_media(candidate: MediaCandidate) -> bool:
+    lowered = candidate.resolved.lower()
+    if any(marker in lowered for marker in MEDIA_SKIP_PATTERNS):
+        return False
+    if candidate.resolved.startswith("data:"):
+        return True
+    if candidate.kind == "image":
+        return looks_like_image_url(lowered) or lowered.startswith("http")
+    if candidate.kind == "video":
+        return looks_like_image_url(lowered) or looks_like_video_url(lowered) or lowered.startswith("http")
+    return False
+
+
+def collect_media_candidates(html_text: str, page_url: str, html_path: Path) -> tuple[list[MediaCandidate], list[MediaCandidate]]:
+    parser_obj = MediaCollector()
+    parser_obj.feed(html_text)
+    images: list[MediaCandidate] = []
+    videos: list[MediaCandidate] = []
+    seen: set[tuple[str, str]] = set()
+    for kind, refs in (("image", parser_obj.image_refs), ("video", parser_obj.video_refs)):
+        for ref in refs:
+            resolved = resolve_media_reference(ref, page_url, html_path)
+            if not resolved:
+                continue
+            candidate = MediaCandidate(kind=kind, source=ref, resolved=resolved)
+            key = (candidate.kind, candidate.resolved)
+            if key in seen or not is_interesting_media(candidate):
+                continue
+            seen.add(key)
+            if kind == "image":
+                images.append(candidate)
+            else:
+                videos.append(candidate)
+    return images, videos
+
+
+def data_url_to_bytes(data_url: str) -> bytes:
+    if ";base64," not in data_url:
+        raise RuntimeError("unsupported data url without base64 payload")
+    return base64.b64decode(data_url.split(",", 1)[1])
+
+
+def read_media_bytes(reference: str, page_url: str, timeout_seconds: float = 20.0) -> bytes:
+    if reference.startswith("data:"):
+        return data_url_to_bytes(reference)
+    local_path = Path(reference)
+    if local_path.exists():
+        return local_path.read_bytes()
+    req = request.Request(
+        reference,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Referer": page_url,
+            "Accept": "*/*",
+        },
+    )
+    with request.urlopen(req, timeout=timeout_seconds) as response:
+        return response.read()
+
+
+def media_payload(candidate: MediaCandidate, page_url: str) -> tuple[str | None, str]:
+    lowered = candidate.resolved.lower()
+    if candidate.kind == "video" and looks_like_video_url(lowered) and not looks_like_image_url(lowered):
+        return None, "video source has no poster image"
+    return base64.b64encode(read_media_bytes(candidate.resolved, page_url)).decode("ascii"), ""
+
+
+def analyze_media_entries(
+    candidates: list[MediaCandidate],
+    page_url: str,
+    client: OllamaClient,
+    *,
+    limit: int,
+    label: str,
+) -> list[dict[str, object]]:
+    results: list[dict[str, object]] = []
+    for candidate in candidates[:limit]:
+        entry: dict[str, object] = {
+            "source": candidate.source,
+            "resolved": candidate.resolved,
+        }
+        try:
+            image_payload, skip_reason = media_payload(candidate, page_url)
+            if not image_payload:
+                entry["description"] = ""
+                entry["error"] = skip_reason
+                results.append(entry)
+                continue
+            raw_output = client.chat(
+                "请识别这张社交媒体素材，并只返回 JSON。JSON 只包含两个键：description、text。text 没有就返回空字符串。",
+                images=[image_payload],
+            )
+            parsed = extract_json_object(raw_output)
+            entry["description"] = normalize_text_field(parsed.get("description"))
+            visible_text = normalize_text_field(parsed.get("text"))
+            if visible_text:
+                entry["text"] = visible_text
+            entry["label"] = label
+        except Exception as exc:  # noqa: BLE001
+            entry["description"] = ""
+            entry["error"] = str(exc)
+        results.append(entry)
+    return results
+
+
+def build_manifest(result: CaptureResult, client: OllamaClient) -> dict[str, object]:
+    return {
+        "item_index": result.index,
+        "url": result.url,
+        "window": asdict(result.window) if result.window else None,
+        "screenshots": [str(path) for path in result.screenshot_paths],
+        "output_dir": str(result.item_dir),
+        "interaction_error": result.interaction_error,
+        "skipped_capture": result.skipped_capture,
+        "result_summary": result.result_summary,
+        "precheck_status_code": result.precheck_status_code,
+        "precheck_location": result.precheck_location,
+        "stop_reason": result.stop_reason,
+        "html_path": "",
+        "html_export_method": "",
+        "ollama_endpoint": client.url,
+        "ollama_model": client.model,
+        "parse_error": "",
+        "title": "",
+        "正文": "",
+        "评论": "",
+        "互动数据": "",
+        "图片": [],
+        "视频": [],
+    }
+
+
+def write_manifest(manifest: dict[str, object], item_dir: Path) -> dict[str, object]:
+    (item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    return manifest
+
+
+def process_result(
+    result: CaptureResult,
+    client: OllamaClient,
+    *,
+    image_limit: int,
+    video_limit: int,
+) -> dict[str, object]:
+    manifest = build_manifest(result, client)
+    if result.skipped_capture or result.window is None:
+        return write_manifest(manifest, result.item_dir)
+    try:
+        html_path, export_method = export_current_html(result)
+        manifest["html_path"] = str(html_path)
+        manifest["html_export_method"] = export_method
+        html_text = html_path.read_text(encoding="utf-8", errors="replace")
+        structured_fields = analyze_html_fields(html_text, result.url, client)
+        manifest["title"] = structured_fields["title"]
+        manifest["正文"] = structured_fields["正文"]
+        manifest["评论"] = structured_fields["评论"]
+        manifest["互动数据"] = structured_fields["互动数据"]
+        image_candidates, video_candidates = collect_media_candidates(html_text, result.url, html_path)
+        manifest["图片"] = analyze_media_entries(image_candidates, result.url, client, limit=image_limit, label="image")
+        manifest["视频"] = analyze_media_entries(video_candidates, result.url, client, limit=video_limit, label="video")
+        manifest["result_summary"] = "expanded html exported and parsed by ollama-compatible model"
+    except Exception as exc:  # noqa: BLE001
+        manifest["parse_error"] = str(exc)
+        manifest["result_summary"] = "html export or ollama-compatible parsing failed"
+    return write_manifest(manifest, result.item_dir)
+
+
+def relative_path_text(path_value: str, root_dir: Path) -> str:
+    if not path_value:
+        return ""
+    path = Path(path_value)
+    try:
+        return str(path.relative_to(root_dir))
+    except ValueError:
+        return str(path)
+
+
+def format_multiline(value: object, empty_placeholder: str) -> list[str]:
+    if value is None:
+        return [empty_placeholder]
+    if isinstance(value, list):
+        if not value:
+            return [empty_placeholder]
+        return json.dumps(value, ensure_ascii=False, indent=2).splitlines()
+    text = str(value).strip()
+    return text.splitlines() if text else [empty_placeholder]
+
+
+def build_report(manifests: list[dict[str, object]], root_dir: Path) -> str:
     lines = [
-        "# Chrome Visual Extraction",
+        "# Chrome HTML Extraction Report",
         "",
-        f"- Total items: {len(results)}",
+        f"- Total items: {len(manifests)}",
         "",
     ]
-    for result in results:
+    for manifest in manifests:
         lines.extend(
             [
-                f"## Item {result.index}",
+                f"## Item {manifest.get('item_index')}",
                 "",
-                f"- URL: {result.url}",
+                f"- URL: {manifest.get('url', '')}",
+                f"- Output dir: {relative_path_text(str(manifest.get('output_dir', '')), root_dir) or 'none'}",
+                f"- HTML: {relative_path_text(str(manifest.get('html_path', '')), root_dir) or 'none'}",
+                f"- Export method: {manifest.get('html_export_method', '') or 'none'}",
+                f"- Model: {manifest.get('ollama_model', '') or 'none'}",
+                f"- Endpoint: {manifest.get('ollama_endpoint', '') or 'none'}",
+                f"- Result: {manifest.get('result_summary', '') or 'pending'}",
             ]
         )
-        if result.result_summary:
-            lines.append(f"- Result: {result.result_summary}")
-        if result.precheck_status_code is not None:
-            lines.append(f"- HTTP precheck: {result.precheck_status_code}")
-        if result.precheck_location:
-            lines.append(f"- Redirect location: {result.precheck_location}")
-        if result.skipped_capture:
-            lines.append("")
-            continue
-        if result.stop_reason:
-            lines.append(f"- Stop reason: {result.stop_reason}")
-        screenshot_text = ", ".join(str(path.relative_to(root_dir)) for path in result.screenshot_paths)
-        lines.extend(
-            [
-                f"- Output dir: {result.item_dir.relative_to(root_dir)}",
-                f"- Window title: {result.window.title if result.window else 'none'}",
-                f"- Screenshots: {screenshot_text}",
-                f"- Interaction error: {result.interaction_error or 'none'}",
-                "",
-                "### To Fill After Visual Review",
-                "",
-                "- Author:",
-                "- Note title:",
-                "- Publish time / location:",
-                "- Media type:",
-                "- Visible text:",
-                "- Visible comments:",
-                "- Engagement data:",
-                "- Notes:",
-                "",
-            ]
-        )
+        if manifest.get("precheck_status_code") is not None:
+            lines.append(f"- HTTP precheck: {manifest.get('precheck_status_code')}")
+        if manifest.get("precheck_location"):
+            lines.append(f"- Redirect location: {manifest.get('precheck_location')}")
+        if manifest.get("stop_reason"):
+            lines.append(f"- Stop reason: {manifest.get('stop_reason')}")
+        if manifest.get("interaction_error"):
+            lines.append(f"- Interaction error: {manifest.get('interaction_error')}")
+        if manifest.get("parse_error"):
+            lines.append(f"- Parse error: {manifest.get('parse_error')}")
+        lines.extend(["", "### title", ""])
+        lines.extend(format_multiline(manifest.get("title"), "(empty)"))
+        lines.extend(["", "### 正文", ""])
+        lines.extend(format_multiline(manifest.get("正文"), "(empty)"))
+        lines.extend(["", "### 评论", ""])
+        lines.extend(format_multiline(manifest.get("评论"), "(empty)"))
+        lines.extend(["", "### 互动数据", ""])
+        lines.extend(format_multiline(manifest.get("互动数据"), "(empty)"))
+        lines.extend(["", "### 图片", ""])
+        lines.extend(format_multiline(manifest.get("图片"), "[]"))
+        lines.extend(["", "### 视频", ""])
+        lines.extend(format_multiline(manifest.get("视频"), "[]"))
+        lines.extend(["", ""])
     return "\n".join(lines)
 
 
@@ -1065,6 +1784,17 @@ def capture_item(
             "precheck_status_code": precheck.status_code,
             "precheck_location": precheck.location,
             "stop_reason": "",
+            "html_path": "",
+            "html_export_method": "",
+            "ollama_endpoint": "",
+            "ollama_model": "",
+            "parse_error": "",
+            "title": "",
+            "正文": "",
+            "评论": "",
+            "互动数据": "",
+            "图片": [],
+            "视频": [],
         }
         (item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         return CaptureResult(
@@ -1210,6 +1940,17 @@ def capture_item(
         "precheck_status_code": precheck.status_code,
         "precheck_location": precheck.location,
         "stop_reason": stop_reason,
+        "html_path": "",
+        "html_export_method": "",
+        "ollama_endpoint": "",
+        "ollama_model": "",
+        "parse_error": "",
+        "title": "",
+        "正文": "",
+        "评论": "",
+        "互动数据": "",
+        "图片": [],
+        "视频": [],
     }
     (item_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return CaptureResult(
@@ -1228,13 +1969,15 @@ def capture_item(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Visually capture one or more pages from local GUI Chrome.")
+    parser = argparse.ArgumentParser(
+        description="Expand comments in GUI Chrome, export expanded HTML, and parse it with an Ollama-compatible model."
+    )
     parser.add_argument("inputs", nargs="*", help="One or more URLs or raw text blocks containing URLs")
-    parser.add_argument("--out-dir", default="", help="Directory for screenshots and metadata")
+    parser.add_argument("--out-dir", default="", help="Directory for html export, debug screenshots, manifests, and report")
     parser.add_argument("--wait-seconds", type=float, default=8.0, help="Wait after opening the URL")
     parser.add_argument("--window-hint", default="", help="Prefer a Chrome window whose title contains this text")
-    parser.add_argument("--skip-comment-scroll", action="store_true", help="Only capture the initial page")
-    parser.add_argument("--max-pages", type=int, default=40, help="Maximum screenshots to keep for one link")
+    parser.add_argument("--skip-comment-scroll", action="store_true", help="Only capture the initial page before html export")
+    parser.add_argument("--max-pages", type=int, default=40, help="Maximum debug screenshots to keep for one link")
     parser.add_argument("--scroll-steps", type=int, default=10, help="Mouse-wheel steps between screenshots")
     parser.add_argument("--chrome-profile-dir", default="", help="Use a dedicated Chrome profile directory")
     parser.add_argument("--xephyr", action="store_true", help="Deprecated compatibility flag; capture now prefers the persistent chrome-extractor-rn-main Xephyr session by default")
@@ -1244,6 +1987,12 @@ def main() -> int:
     parser.add_argument("--prepare-login", action="store_true", help="Start or reuse a Xephyr session and open Chrome for manual login")
     parser.add_argument("--login-url", default="", help="Optional URL to open while preparing login")
     parser.add_argument("--close-xephyr-session", default="", help="Close a persistent Xephyr session by name")
+    parser.add_argument("--ollama-base-url", default="http://127.0.0.1:11434", help="Base URL for the Ollama-compatible endpoint")
+    parser.add_argument("--ollama-api-path", default="/api/chat", help="API path for the Ollama-compatible chat endpoint")
+    parser.add_argument("--ollama-model", default="qwen3.5:27b", help="Model name for the Ollama-compatible endpoint")
+    parser.add_argument("--ollama-timeout", type=float, default=180.0, help="Timeout for each Ollama-compatible request")
+    parser.add_argument("--image-limit", type=int, default=8, help="Maximum images to analyze with the model")
+    parser.add_argument("--video-limit", type=int, default=4, help="Maximum video covers to analyze with the model")
     args = parser.parse_args()
 
     rerun_code = maybe_rerun_in_xephyr(args)
@@ -1258,18 +2007,24 @@ def main() -> int:
     require_binary("ffprobe")
     require_x11_session()
 
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    out_dir = Path(args.out_dir) if args.out_dir else Path.cwd() / "tmp" / f"chrome_capture_{timestamp}"
-    out_dir.mkdir(parents=True, exist_ok=True)
     if args.prepare_login or args.close_xephyr_session:
         return 0
     if not args.inputs:
         raise SystemExit("no URL found in input")
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    out_dir = Path(args.out_dir) if args.out_dir else Path.cwd() / "tmp" / f"chrome_capture_v2_{timestamp}"
+    out_dir.mkdir(parents=True, exist_ok=True)
     wants_xephyr = bool(args.inputs) or args.prepare_login or args.xephyr or bool(args.xephyr_session)
     if wants_xephyr and not args.chrome_profile_dir:
         chrome_profile_dir = default_profile_dir_for_session(effective_xephyr_session_name(args))
     else:
         chrome_profile_dir = Path(args.chrome_profile_dir) if args.chrome_profile_dir else None
+    client = OllamaClient(
+        base_url=args.ollama_base_url,
+        api_path=args.ollama_api_path,
+        model=args.ollama_model,
+        timeout=args.ollama_timeout,
+    )
     urls = extract_urls(args.inputs)
     results = [
         capture_item(
@@ -1285,10 +2040,16 @@ def main() -> int:
         )
         for index, url in enumerate(urls, start=1)
     ]
-    (out_dir / "REPORT.md").write_text(
-        build_report(results, out_dir),
-        encoding="utf-8",
-    )
+    manifests = [
+        process_result(
+            result,
+            client,
+            image_limit=args.image_limit,
+            video_limit=args.video_limit,
+        )
+        for result in results
+    ]
+    (out_dir / "REPORT.md").write_text(build_report(manifests, out_dir), encoding="utf-8")
     print(str(out_dir))
     return 0
 
