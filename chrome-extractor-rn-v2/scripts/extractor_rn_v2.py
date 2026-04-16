@@ -92,6 +92,9 @@ class ChunkResult(TypedDict):
 	视频: list[str]
 
 
+ROOT_DIR: Path | None = None
+
+
 def randomize_delay(base_seconds: float,
                     jitter_ratio: float = 0.35,
                     min_seconds: float = 0.01,
@@ -126,7 +129,9 @@ def log_event(stage: str, **kwargs: object) -> None:
 	timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 	if kwargs:
 		detail_text = ", ".join(f"{key}={format_log_value(value)}" for key, value in kwargs.items())
-		print(f"[{timestamp}] [{stage}] {detail_text}", flush=True)
+		RED = "\033[31m"
+		RESET = "\033[0m"
+		print(f"[{timestamp}] {RED} [{stage}] {RESET} {detail_text}", flush=True)
 		return
 	print(f"[{timestamp}] [{stage}]", flush=True)
 
@@ -477,7 +482,7 @@ def extract_urls(raw_inputs: list[str]) -> list[str]:
 	if not urls:
 		log_event("extract_urls.empty")
 		raise SystemExit("no URL found in input")
-	log_event("extract_urls.done", url_count=len(urls), urls=urls)
+	log_event("extract_urls.done", url_count=len(urls))
 	return urls
 
 
@@ -573,7 +578,7 @@ class NoRedirectHandler(request.HTTPRedirectHandler):
 
 
 def precheck_url(url: str, timeout: float = 10.0) -> PrecheckResult:
-	log_event("precheck.start", url=url, timeout=timeout)
+	log_event("precheck.start", timeout=timeout)
 	opener = request.build_opener(NoRedirectHandler)
 	req = request.Request(
 		url, method="HEAD", headers={
@@ -589,22 +594,22 @@ def precheck_url(url: str, timeout: float = 10.0) -> PrecheckResult:
 		status_code = exc.code
 		location = exc.headers.get("Location", "")
 	except error.URLError:
-		log_event("precheck.network_error", url=url)
+		log_event("precheck.network_error")
 		return PrecheckResult(
 			skipped_capture=False, status_code=None, location="", result_summary="", )
 	except Exception:
-		log_event("precheck.unknown_error", url=url)
+		log_event("precheck.unknown_error")
 		return PrecheckResult(
 			skipped_capture=False, status_code=None, location="", result_summary="", )
 	if status_code == HTTPStatus.FOUND:
-		log_event("precheck.moved", url=url, status_code=status_code, location=location)
+		log_event("precheck.moved", status_code=status_code, location=location)
 		return PrecheckResult(
 			skipped_capture=True, status_code=status_code, location=location, result_summary="页面已下架", )
-	if status_code == HTTPStatus.NOT_FOUND or ("/404" in url or "/404" in location):
-		log_event("precheck.NOT_FOUND", url=url, status_code=status_code, location=location)
+	if status_code == HTTPStatus.NOT_FOUND and ("/404" in url or "/404" in location):
+		log_event("precheck.NOT_FOUND", status_code=status_code, location=location)
 		return PrecheckResult(
 			skipped_capture=True, status_code=status_code, location=location, result_summary="页面不存在", )
-	log_event("precheck.done", url=url, status_code=status_code, location=location, skipped_capture=False)
+	log_event("precheck.done", status_code=status_code, location=location, skipped_capture=False)
 	return PrecheckResult(
 		skipped_capture=False, status_code=status_code, location=location, result_summary="", )
 
@@ -1223,7 +1228,7 @@ def wait_for_target_window(before_ids: set[str], wait_seconds: float, hint: str 
 
 
 def ensure_login_window(session_state: XephyrSessionState, url: str) -> None:
-	log_event("xephyr.login_window.start", session_name=session_state.name, display=session_state.display, url=url)
+	log_event("xephyr.login_window.start", session_name=session_state.name, display=session_state.display)
 	display_env = session_display_env(session_state.display)
 	windows_before = list_chrome_windows()
 	open_url(
@@ -1714,18 +1719,14 @@ def merge_interact_text_with_share_count(interact_text: str, share_count: str) -
 chunk_size = 30000
 
 
-def analyze_html_fields(html_text: str, page_url: str, client: RnOllamaClient) -> dict[str, object]:
+def analyze_html_fields(html_text: str, page_url: str, client: RnOllamaClient, item_dir: Path) -> dict[str, object]:
 	compact_html, share_count = clean_html_for_model(html_text)
-	html_path = Path(__file__).resolve().parent / Path("tmp/test/test.html")
+	html_path = item_dir / 'expanded_page_analyse.html'
 	html_path.write_text(compact_html, encoding="utf-8")
 	
 	html_chunks = split_html_chunks(compact_html, chunk_size=chunk_size)
 	log_event(
-		"analyze_html.start",
-		url=page_url,
-		html_length=len(compact_html),
-		chunk_count=len(html_chunks),
-		share_count=share_count, )
+		"analyze_html.start", html_length=len(compact_html), chunk_count=len(html_chunks), share_count=share_count, )
 	system_prompt = """
     你只返回 JSON，不要解释，不要 markdown。请基于下面这份“评论已经展开后的整页 HTML 分段”提取结构化信息，必须返回 JSON 对象。
 
@@ -1770,7 +1771,7 @@ def analyze_html_fields(html_text: str, page_url: str, client: RnOllamaClient) -
     """
 	chunk_results: list[ChunkResult] = []
 	for index, html_chunk in enumerate(html_chunks, start=1):
-		log_event("analyze_html.chunk.start", url=page_url, chunk_index=index, chunk_total=len(html_chunks))
+		log_event("analyze_html.chunk.start", chunk_index=index, chunk_total=len(html_chunks))
 		user_prompt = f"""
 URL: {page_url}
 当前分段: {index}/{len(html_chunks)}
@@ -1792,7 +1793,6 @@ HTML:
 		)
 		log_event(
 			"analyze_html.chunk.done",
-			url=page_url,
 			chunk_index=index,
 			image_count=len(chunk_results[-1]["图片"]),
 			video_count=len(chunk_results[-1]["视频"]), )
@@ -1811,7 +1811,6 @@ HTML:
 	}
 	log_event(
 		"analyze_html.done",
-		url=page_url,
 		title_found=bool(result["title"]),
 		image_count=len(result["图片"]),
 		video_count=len(result["视频"]), )
@@ -1974,30 +1973,32 @@ def write_manifest(manifest: dict[str, object], item_dir: Path) -> dict[str, obj
 	return manifest
 
 
-def process_result(result: CaptureResult, client: RnOllamaClient, *, image_limit: int, video_limit: int, ) -> dict[
-	str, object]:
+def process_result(result: CaptureResult,
+                   client: RnOllamaClient,
+                   *,
+                   image_limit: int,
+                   video_limit: int,
+                   item_index: int, ) -> dict[str, object]:
 	log_event(
 		"process_result.start",
 		item_index=result.index,
-		url=result.url,
 		skipped_capture=result.skipped_capture,
 		window_found=result.window is not None, )
 	manifest = build_manifest(result, client)
 	if result.skipped_capture or result.window is None:
-		log_event("process_result.skip", item_index=result.index, url=result.url, reason=result.result_summary)
+		log_event("process_result.skip", item_index=result.index, reason=result.result_summary)
 		return write_manifest(manifest, result.item_dir)
 	try:
 		html_path, export_method = export_current_html(result)
 		log_event(
-			"process_result.html_exported",
-			item_index=result.index,
-			url=result.url,
-			html_path=html_path,
-			export_method=export_method, )
+			"process_result.html_exported", item_index=result.index, html_path=html_path, export_method=export_method, )
 		manifest["html_path"] = str(html_path)
 		manifest["html_export_method"] = export_method
 		html_text = html_path.read_text(encoding="utf-8", errors="replace")
-		structured_fields = analyze_html_fields(html_text, result.url, client)
+		if ROOT_DIR is None:
+			raise RuntimeError("ROOT_DIR is not initialized")
+		item_dir = ROOT_DIR / f"item_{item_index}"
+		structured_fields = analyze_html_fields(html_text, result.url, client, item_dir)
 		manifest["title"] = structured_fields["title"]
 		manifest["正文"] = structured_fields["正文"]
 		manifest["评论"] = structured_fields["评论"]
@@ -2010,22 +2011,23 @@ def process_result(result: CaptureResult, client: RnOllamaClient, *, image_limit
 		log_event(
 			"process_result.done",
 			item_index=result.index,
-			url=result.url,
 			image_count=len(manifest["图片"]),
 			video_count=len(manifest["视频"]), )
 	except Exception as exc:  # noqa: BLE001
 		manifest["parse_error"] = str(exc)
 		manifest["result_summary"] = "html export or ollama-compatible parsing failed"
-		log_event("process_result.error", item_index=result.index, url=result.url, error=str(exc))
+		log_event("process_result.error", item_index=result.index, error=str(exc))
 	return write_manifest(manifest, result.item_dir)
 
 
-def relative_path_text(path_value: str, root_dir: Path) -> str:
+def relative_path_text(path_value: str) -> str:
 	if not path_value:
 		return ""
+	if ROOT_DIR is None:
+		return path_value
 	path = Path(path_value)
 	try:
-		return str(path.relative_to(root_dir))
+		return str(path.relative_to(ROOT_DIR))
 	except ValueError:
 		return str(path)
 
@@ -2041,15 +2043,15 @@ def format_multiline(value: object, empty_placeholder: str) -> list[str]:
 	return text.splitlines() if text else [empty_placeholder]
 
 
-def build_report(manifests: list[dict[str, object]], root_dir: Path) -> str:
+def build_report(manifests: list[dict[str, object]]) -> str:
 	lines = ["# Chrome HTML Extraction Report", "", f"- Total items: {len(manifests)}", "", ]
 	for manifest in manifests:
 		lines.extend(
 			[f"## Item {manifest.get('item_index')}",
 			 "",
 			 f"- URL: {manifest.get('url', '')}",
-			 f"- Output dir: {relative_path_text(str(manifest.get('output_dir', '')), root_dir) or 'none'}",
-			 f"- HTML: {relative_path_text(str(manifest.get('html_path', '')), root_dir) or 'none'}",
+			 f"- Output dir: {relative_path_text(str(manifest.get('output_dir', ''))) or 'none'}",
+			 f"- HTML: {relative_path_text(str(manifest.get('html_path', ''))) or 'none'}",
 			 f"- Export method: {manifest.get('html_export_method', '') or 'none'}",
 			 f"- Model: {manifest.get('ollama_model', '') or 'none'}",
 			 f"- Endpoint: {manifest.get('ollama_endpoint', '') or 'none'}",
@@ -2083,7 +2085,6 @@ def build_report(manifests: list[dict[str, object]], root_dir: Path) -> str:
 
 def capture_item(url: str,
                  item_index: int,
-                 root_dir: Path,
                  wait_seconds: float,
                  window_hint: str,
                  skip_comment_scroll: bool,
@@ -2098,14 +2099,15 @@ def capture_item(url: str,
 		max_pages=max_pages,
 		scroll_steps=scroll_steps,
 		chrome_profile_dir=chrome_profile_dir, )
-	item_dir = root_dir / f"item_{item_index}"
+	if ROOT_DIR is None:
+		raise RuntimeError("ROOT_DIR is not initialized")
+	item_dir = ROOT_DIR / f"item_{item_index}"
 	item_dir.mkdir(parents=True, exist_ok=True)
 	precheck = precheck_url(url)
 	if precheck.skipped_capture:
 		log_event(
 			"capture_item.precheck_skip",
 			item_index=item_index,
-			url=url,
 			status_code=precheck.status_code,
 			location=precheck.location, )
 		manifest = {
@@ -2196,7 +2198,7 @@ def capture_item(url: str,
 		stagnant_rounds = 0
 		tail_probe_rounds = 0
 		while page_index < max_pages:
-			log_event("capture_item.page.start", item_index=item_index, url=url, page_index=page_index + 1)
+			log_event("capture_item.page.start", item_index=item_index, page_index=page_index + 1)
 			expanded_count = expand_visible_reply_links(
 				target_window.window_id, geometry, controller, temp_capture_dir, page_index + 1, )
 			scroll_x, scroll_y = comment_panel_point(geometry)
@@ -2266,7 +2268,6 @@ def capture_item(url: str,
 			log_event(
 				"capture_item.page.done",
 				item_index=item_index,
-				url=url,
 				page_index=page_index,
 				expanded_count=expanded_count
 				)
@@ -2280,13 +2281,12 @@ def capture_item(url: str,
 			stop_reason = f"reached max_pages={max_pages}"
 	except Exception as exc:  # noqa: BLE001
 		interaction_error = str(exc)
-		log_event("capture_item.error", item_index=item_index, url=url, error=interaction_error)
+		log_event("capture_item.error", item_index=item_index, error=interaction_error)
 	finally:
 		shutil.rmtree(temp_capture_dir, ignore_errors=True)
 	log_event(
 		"capture_item.done",
 		item_index=item_index,
-		url=url,
 		stop_reason=stop_reason,
 		interaction_error=interaction_error,
 		page_count=page_index, )
@@ -2329,6 +2329,7 @@ def capture_item(url: str,
 
 
 def main() -> int:
+	global ROOT_DIR
 	parser = argparse.ArgumentParser(
 		description="Expand comments in GUI Chrome, export expanded HTML, and parse it with an Ollama-compatible model."
 	)
@@ -2404,6 +2405,7 @@ def main() -> int:
 	timestamp = time.strftime("%Y%m%d_%H%M%S")
 	out_dir = Path(args.out_dir) if args.out_dir else Path.cwd() / "tmp" / f"chrome_capture_v2_{timestamp}"
 	out_dir.mkdir(parents=True, exist_ok=True)
+	ROOT_DIR = out_dir
 	wants_xephyr = bool(args.inputs) or args.prepare_login or args.xephyr or bool(args.xephyr_session)
 	if wants_xephyr and not args.chrome_profile_dir:
 		chrome_profile_dir = default_profile_dir_for_session(effective_xephyr_session_name(args))
@@ -2419,7 +2421,6 @@ def main() -> int:
 	results = [capture_item(
 		url,
 		index,
-		out_dir,
 		args.wait_seconds,
 		args.window_hint,
 		args.skip_comment_scroll,
@@ -2428,8 +2429,9 @@ def main() -> int:
 		chrome_profile_dir, ) for index, url in enumerate(urls, start=1)]
 	log_event("main.capture_done", result_count=len(results))
 	manifests = [process_result(
-		result, client, image_limit=args.image_limit, video_limit=args.video_limit, ) for result in results]
-	(out_dir / "REPORT.md").write_text(build_report(manifests, out_dir), encoding="utf-8")
+		result, client, image_limit=args.image_limit, video_limit=args.video_limit, item_index=item_index, ) for
+		item_index, result in enumerate(results, start=1)]
+	(out_dir / "REPORT.md").write_text(build_report(manifests), encoding="utf-8")
 	log_event("main.report_done", manifest_count=len(manifests), report_path=out_dir / "REPORT.md")
 	print(str(out_dir))
 	return 0
