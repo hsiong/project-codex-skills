@@ -1,0 +1,1 @@
+If the script reports no reusable session and opens a fresh login session, stop there and ask the user to finish login manually, then rerun `extractor-rn-html <link>`.       不是 ` then rerun `extractor-rn-html <link>`` 你这会让大模型误解   后台rerun，  是提示用户rerun，大模型的当前会话必须终止

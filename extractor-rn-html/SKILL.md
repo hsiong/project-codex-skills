@@ -1,27 +1,27 @@
 ---
 name: extractor-rn-html
-description: Use when the user sends `extractor-rn-html <link>` or asks to use v2 to open links in local GUI Chrome, expand comments and replies, export the fully expanded page HTML, and send that HTML plus media to an Ollama-compatible model endpoint to extract `title`、`正文`、`评论`、`互动数据`、图片和视频 into `manifest.json` and `REPORT.md`. Default to `qwen3.5 27b` unless the user provides another compatible model or endpoint. Do not trigger for screenshot-based parsing, curl/headless-browser scraping, or ordinary coding work.
+description: Use only when the user sends `extractor-rn-html <link>`. This skill handles the X11/Xephyr GUI Chrome flow that opens the link, expands comments and replies, exports expanded HTML, runs the bundled Ollama-compatible analysis, then runs image recognition on the extractor output and writes results into `manifest.json` and `REPORT.md`. Do not trigger for screenshot-only parsing, curl/headless scraping, or ordinary coding work.
 ---
 
-# Chrome HTML Extractor (v2)
+# Chrome HTML Extractor (X11)
 
 Use this skill for tasks like:
 
 - "extractor-rn-html https://example.com/post/123"
-- "用 v2 抓这个链接，评论全部展开后把 html 丢给 ollama 分析"
-- "extractor-rn-html 这几个链接用 qwen3.5 27b 跑一下"
 
 ## Rules
 
 - `extractor-rn-html` is an independent skill. Do not treat it as depending on `chrome-extractor-rn`.
-- Keep the current v2 framework. Replace the parsing stage only; do not rewrite the whole flow into a different architecture.
+- Keep the current X11/Xephyr framework. Do not rewrite the flow into screenshots, curl scraping, CDP scraping, or a headless browser pipeline.
 - Keep the local GUI Chrome workflow and preserve the existing comment expansion logic, including visible `展开 n 条回复` actions and comment-panel scrolling.
+- The main extractor is `scripts/extractor_x11.py`. The post-analysis image recognizer is `scripts/analyse_x11.py`.
 - After comments and replies are expanded as far as the page allows, export the current page HTML and use that HTML as the primary analysis input.
-- Do not switch the parsing stage to screenshots, `view_image`, hardcoded DOM extraction, `curl`, CDP scraping, or headless Chrome.
-- Send the expanded HTML to an Ollama-compatible model endpoint to extract `title`、`正文`、`评论`、`互动数据`、图片和视频.
-- Default to `gemma4:26b` (or `qwen3.5 27b` if preferred), but allow the model name and compatible endpoint address to follow user-provided arguments.
-- Image recognition must also use the same Ollama-compatible protocol. Later endpoints may differ by base URL, but the request/response protocol stays Ollama-compatible.
-- Treat image and video extraction as model-side analysis from the HTML/media references, not screenshot OCR.
+- `scripts/extractor_x11.py` should export HTML, split and clean it for model analysis, extract `title`、`正文`、`评论`、`互动数据`、`图片`、`视频`, download note images, and write `manifest.json` plus `REPORT.md`.
+- After `scripts/extractor_x11.py` finishes successfully, run `scripts/analyse_x11.py` automatically on the same output directory and write `图片识别` back into each `manifest.json`.
+- If no reusable session exists, `scripts/extractor_x11.py` should start a new Xephyr session, open Chrome for manual login, then stop. At that point the assistant must end the current flow immediately, tell the user to log in manually, and tell the user that they need to send a new `extractor-rn-html <link>` request after login. Do not continue in the background, and do not treat it as the current session's rerun.
+- Both scripts must use an Ollama-compatible chat endpoint; allow model name, base URL, API path, and timeout overrides from user arguments.
+- Default to `gemma4:26b` for HTML parsing in `extractor_x11.py`, and `qwen3-vl:8b` for image recognition in `analyse_x11.py`, unless the user specifies other compatible values.
+- Treat image and video extraction as model-side analysis from the expanded HTML and downloaded media, not screenshot OCR.
 - For videos, only recognize the visible cover, poster, or current frame that is actually available to the model input. Do not infer unseen content.
 - `title`、`正文`、`评论`、`互动数据` must stay close to the source content. Do not rewrite them into polished prose.
 - `互动数据` should be formatted as `点赞: xx, 收藏: xx, 评论: xx, 分享：xx`.
@@ -37,30 +37,44 @@ Use this skill for tasks like:
 
 ## Quick Workflow
 
-1. Confirm the user provided one or more links, usually with the wake word `extractor-rn-html`.
-2. Run the bundled v2 implementation for the current OS and desktop session. Keep the GUI Chrome opening and reply-expansion flow.
-3. Expand visible comments and replies as fully as the current page allows.
-4. Export the expanded page HTML for each item.
-5. Send the HTML to the configured Ollama-compatible model endpoint and parse `title`、`正文`、`评论`、`互动数据`、图片和视频.
-6. If media recognition is needed, send the media inputs to the configured compatible model instead of relying on screenshot reading.
-7. Write the parsed fields back into each `item_n/manifest.json`.
-8. Generate the final `REPORT.md` from the parsed manifests.
+1. Confirm the user input is `extractor-rn-html <link>`.
+2. Run `scripts/extractor_x11.py`.
+3. If the script reports no reusable session and opens a fresh login session, stop there, tell the user to finish login manually, and end the current model flow. The next extraction must come from a new user message `extractor-rn-html <link>`, not from a background rerun in the current session.
+4. If a reusable session exists, let the extractor open the link, expand visible comments and replies, export the expanded page HTML, and write parsed fields plus downloaded images into each `item_n/manifest.json`.
+5. Immediately run `scripts/analyse_x11.py` on that same output directory and write `图片识别` into each manifest.
+6. Return the final output directory containing refreshed manifests and `REPORT.md`.
 
 ## Execution Notes
 
-- Prefer the bundled implementation under `extractor-rn-html/` for platform-specific execution.
+- Prefer the bundled implementation under `extractor-rn-html/`.
 - When the user supplies a model or endpoint override, pass it through to the bundled implementation instead of hardcoding defaults in the prompt.
-- The current Linux implementation is `python3 extractor-rn-html/scripts/extractor_rn_v2.py '<url1>' '<url2>'`.
+- The current Linux X11 flow starts with:
+
+```bash
+python3 extractor-rn-html/scripts/extractor_x11.py '<url1>' '<url2>'
+```
+
+- After extraction succeeds, run image analysis on the same output directory:
+
+```bash
+python3 extractor-rn-html/scripts/analyse_x11.py --out-dir <extractor_output_dir>
+```
+
 - Common overrides:
   `--ollama-base-url <url>`
   `--ollama-api-path <path>`
   `--ollama-model <model>`
   `--ollama-timeout <seconds>`
   `--xephyr-session <session_name>`
-  `--prepare-login`
+  `--image-limit <n>`
+  `--video-limit <n>`
+  `--wait-seconds <seconds>`
+  `--skip-comment-scroll`
 
 ## Output
 
 - `item_n/expanded_page.html`: expanded HTML exported from the current Chrome page.
-- `item_n/manifest.json`: capture metadata plus parsed `title`、`正文`、`评论`、`互动数据`、图片和视频.
+- `item_n/expanded_page_analyse.html`: cleaned HTML chunk source written before model analysis.
+- `item_n/images/`: downloaded note images referenced by the parsed result.
+- `item_n/manifest.json`: capture metadata plus parsed `title`、`正文`、`评论`、`互动数据`、`图片`、`视频`; after `analyse_x11.py`, it also contains `图片识别`.
 - `REPORT.md`: merged report generated from the parsed manifests.
