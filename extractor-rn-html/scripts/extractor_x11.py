@@ -419,6 +419,54 @@ def spawn_background_process(command: list[str], *, env: dict[str, str] | None =
 		close_fds=True, )
 
 
+def list_chrome_processes_for_profile(profile_dir: Path) -> list[ProcessMatch]:
+	escaped_profile = re.escape(str(profile_dir))
+	pattern = re.compile(
+		rf"(^|.*/)(google-chrome|google-chrome-stable|chromium|chrome)(\s|$).*--user-data-dir(?:=|\s+){escaped_profile}(\s|$)"
+	)
+	return list_process_matches(pattern)
+
+
+def terminate_processes(processes: list[ProcessMatch], wait_seconds: float = 5.0) -> None:
+	for process in processes:
+		try:
+			os.kill(process.pid, 15)
+		except OSError:
+			continue
+	deadline = time.time() + max(wait_seconds, 0.5)
+	while time.time() < deadline:
+		if all(not pid_is_alive(process.pid) for process in processes):
+			return
+		time.sleep(0.1)
+	for process in processes:
+		if not pid_is_alive(process.pid):
+			continue
+		try:
+			os.kill(process.pid, 9)
+		except OSError:
+			continue
+
+
+def cleanup_chrome_profile_singletons(profile_dir: Path) -> None:
+	for name in ("SingletonCookie", "SingletonLock", "SingletonSocket"):
+		(profile_dir / name).unlink(missing_ok=True)
+
+
+def reset_stale_chrome_profile(profile_dir: Path) -> None:
+	processes = list_chrome_processes_for_profile(profile_dir)
+	if not processes:
+		cleanup_chrome_profile_singletons(profile_dir)
+		return
+	log_event(
+		"chrome.profile.reset",
+		profile_dir=profile_dir,
+		pids=[process.pid for process in processes],
+	)
+	terminate_processes(processes)
+	cleanup_chrome_profile_singletons(profile_dir)
+	sleep_randomized(0.5, jitter_ratio=0.3, min_seconds=0.2, max_seconds=0.9)
+
+
 def open_url(url: str,
              *,
              new_window: bool = False,
@@ -432,11 +480,61 @@ def open_url(url: str,
 		command.append("--new-window")
 	if profile_dir is not None:
 		profile_dir.mkdir(parents=True, exist_ok=True)
+		if new_window:
+			reset_stale_chrome_profile(profile_dir)
 		command.extend(
 			[f"--user-data-dir={profile_dir}", "--no-first-run", "--no-default-browser-check", ]
 		)
 	command.append(url)
 	spawn_background_process(command, env=env)
+
+
+def relay_url_to_existing_browser(url: str, *, profile_dir: Path, env: dict[str, str] | None = None) -> bool:
+	chrome = shutil_which("google-chrome") or shutil_which("google-chrome-stable") or shutil_which("chromium")
+	if not chrome:
+		raise SystemExit("no Chrome/Chromium binary found")
+	command = [chrome, f"--user-data-dir={profile_dir}", "--new-tab", url]
+	result = subprocess.run(
+		command,
+		env=env,
+		check=False,
+		stdin=subprocess.DEVNULL,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+		text=True,
+		close_fds=True,
+	)
+	log_event(
+		"chrome.tab.relay",
+		returncode=result.returncode,
+		stdout=result.stdout.strip(),
+		stderr=result.stderr.strip(),
+	)
+	return result.returncode == 0
+
+
+def open_url_in_existing_window(window_id: str,
+                                url: str,
+                                *,
+                                profile_dir: Path | None = None,
+                                env: dict[str, str] | None = None, ) -> None:
+	log_event("chrome.tab.open.start", window_id=window_id, url=url, profile_dir=profile_dir)
+	activate_window(window_id)
+	sleep_randomized(0.2, jitter_ratio=0.35, min_seconds=0.08, max_seconds=0.45)
+	if profile_dir is not None and relay_url_to_existing_browser(url, profile_dir=profile_dir, env=env):
+		log_event("chrome.tab.open.done", window_id=window_id, mode="browser-relay")
+		return
+	controller = XController()
+	controller.press_key("Escape")
+	sleep_randomized(0.3, jitter_ratio=0.4, min_seconds=0.12, max_seconds=0.6)
+	key_combo(controller, ["Control_L"], "t")
+	sleep_randomized(0.35, jitter_ratio=0.35, min_seconds=0.18, max_seconds=0.7)
+	key_combo(controller, ["Control_L"], "l")
+	sleep_randomized(0.15, jitter_ratio=0.4, min_seconds=0.05, max_seconds=0.35)
+	type_text(controller, url)
+	sleep_randomized(0.12, jitter_ratio=0.4, min_seconds=0.04, max_seconds=0.25)
+	tap_key(controller, "Return")
+	log_event("chrome.tab.open.done", window_id=window_id, mode="keyboard-fallback")
 
 
 def save_window_screenshot(window_id: str, path: Path) -> None:
@@ -1231,8 +1329,24 @@ def ensure_login_window(session_state: XephyrSessionState, url: str) -> None:
 	log_event("xephyr.login_window.start", session_name=session_state.name, display=session_state.display)
 	display_env = session_display_env(session_state.display)
 	windows_before = list_chrome_windows()
-	open_url(
-		url, new_window=not windows_before, profile_dir=Path(session_state.profile_dir), env=display_env, )
+	if windows_before:
+		active_window_id = get_active_window_id()
+		existing_window = choose_target_window(windows_before, None, active_window_id, set())
+		log_event(
+			"xephyr.login_window.reuse",
+			session_name=session_state.name,
+			window_id=existing_window.window_id,
+			title=existing_window.title,
+		)
+		open_url_in_existing_window(
+			existing_window.window_id,
+			url,
+			profile_dir=Path(session_state.profile_dir),
+			env=display_env,
+		)
+	else:
+		open_url(
+			url, new_window=True, profile_dir=Path(session_state.profile_dir), env=display_env, )
 	sleep_randomized(2.0, jitter_ratio=0.25, min_seconds=1.4, max_seconds=2.8)
 	if not list_chrome_windows():
 		raise SystemExit("failed to open Chrome inside Xephyr session")
@@ -2129,6 +2243,7 @@ def capture_item(url: str,
 	before_ids = {window.window_id for window in before_windows}
 	active_window_id = get_active_window_id()
 	existing_window: ChromeWindow | None = None
+	controller: XController | None = None
 	if before_windows:
 		existing_window = choose_target_window(before_windows, window_hint or None, active_window_id, set())
 		log_event(
@@ -2137,9 +2252,14 @@ def capture_item(url: str,
 			window_id=existing_window.window_id,
 			title=existing_window.title
 			)
-		activate_window(existing_window.window_id)
-		sleep_randomized(0.6, jitter_ratio=0.35, min_seconds=0.3, max_seconds=1.0)
-	open_url(url, new_window=not before_windows, profile_dir=chrome_profile_dir)
+		open_url_in_existing_window(
+			existing_window.window_id,
+			url,
+			profile_dir=chrome_profile_dir,
+			env=os.environ.copy(),
+		)
+	else:
+		open_url(url, new_window=True, profile_dir=chrome_profile_dir)
 	sleep_randomized(
 		wait_seconds,
 		jitter_ratio=0.2,
@@ -2166,7 +2286,7 @@ def capture_item(url: str,
 	page_index = 0
 	try:
 		geometry = get_window_geometry(target_window.window_id)
-		controller = XController()
+		controller = controller or XController()
 		controller.press_key("Escape")
 		sleep_randomized(0.5, jitter_ratio=0.4, min_seconds=0.22, max_seconds=0.9)
 		baseline_header_sample: np.ndarray | None = None

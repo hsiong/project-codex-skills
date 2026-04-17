@@ -266,6 +266,108 @@ def open_url(
     spawn_background_process(command, env=env)
 
 
+def key_event(controller: XController, key_name: str, is_press: bool) -> None:
+    if controller.backend == "python-xlib":
+        keysym = controller.XK.string_to_keysym(key_name)
+        keycode = controller.display.keysym_to_keycode(keysym)
+        event_type = controller.X.KeyPress if is_press else controller.X.KeyRelease
+        controller.xtest.fake_input(controller.display, event_type, keycode)
+        controller.display.sync()
+        return
+    keysym = controller.lib_x11.XStringToKeysym(key_name.encode("utf-8"))
+    keycode = controller.lib_x11.XKeysymToKeycode(controller.display, keysym)
+    controller.lib_xtst.XTestFakeKeyEvent(controller.display, keycode, 1 if is_press else 0, 0)
+    controller.lib_x11.XSync(controller.display, 0)
+
+
+def tap_key(controller: XController, key_name: str) -> None:
+    key_event(controller, key_name, True)
+    time.sleep(0.03)
+    key_event(controller, key_name, False)
+
+
+def key_combo(controller: XController, modifiers: list[str], key_name: str) -> None:
+    for modifier in modifiers:
+        key_event(controller, modifier, True)
+        time.sleep(0.02)
+    tap_key(controller, key_name)
+    time.sleep(0.02)
+    for modifier in reversed(modifiers):
+        key_event(controller, modifier, False)
+
+
+def char_key(char: str) -> tuple[str, bool]:
+    if "a" <= char <= "z":
+        return char, False
+    if "A" <= char <= "Z":
+        return char.lower(), True
+    if "0" <= char <= "9":
+        return char, False
+    mapping = {
+        " ": ("space", False),
+        ":": ("semicolon", True),
+        ";": ("semicolon", False),
+        "/": ("slash", False),
+        "?": ("slash", True),
+        ".": ("period", False),
+        ">": ("period", True),
+        ",": ("comma", False),
+        "<": ("comma", True),
+        "-": ("minus", False),
+        "_": ("minus", True),
+        "=": ("equal", False),
+        "+": ("equal", True),
+        "'": ("apostrophe", False),
+        '"': ("apostrophe", True),
+        "`": ("grave", False),
+        "~": ("grave", True),
+        "[": ("bracketleft", False),
+        "{": ("bracketleft", True),
+        "]": ("bracketright", False),
+        "}": ("bracketright", True),
+        "\\": ("backslash", False),
+        "|": ("backslash", True),
+        "!": ("1", True),
+        "@": ("2", True),
+        "#": ("3", True),
+        "$": ("4", True),
+        "%": ("5", True),
+        "^": ("6", True),
+        "&": ("7", True),
+        "*": ("8", True),
+        "(": ("9", True),
+        ")": ("0", True),
+        "\n": ("Return", False),
+    }
+    if char not in mapping:
+        raise RuntimeError(f"unsupported character for X11 typing: {char!r}")
+    return mapping[char]
+
+
+def type_text(controller: XController, text: str, delay_seconds: float = 0.025) -> None:
+    for char in text:
+        key_name, use_shift = char_key(char)
+        if use_shift:
+            key_event(controller, "Shift_L", True)
+        tap_key(controller, key_name)
+        if use_shift:
+            key_event(controller, "Shift_L", False)
+        time.sleep(delay_seconds)
+
+
+def open_url_in_existing_window(window_id: str, url: str) -> None:
+    activate_window(window_id)
+    time.sleep(0.35)
+    controller = XController()
+    key_combo(controller, ["Control_L"], "t")
+    time.sleep(0.25)
+    key_combo(controller, ["Control_L"], "l")
+    time.sleep(0.12)
+    type_text(controller, url)
+    time.sleep(0.08)
+    tap_key(controller, "Return")
+
+
 def save_window_screenshot(window_id: str, path: Path) -> None:
     xwd_path = path.with_suffix(".xwd")
     try:
@@ -965,12 +1067,16 @@ def wait_for_target_window(before_ids: set[str], wait_seconds: float, hint: str 
 def ensure_login_window(session_state: XephyrSessionState, url: str) -> None:
     display_env = session_display_env(session_state.display)
     windows_before = list_chrome_windows()
-    open_url(
-        url,
-        new_window=not windows_before,
-        profile_dir=Path(session_state.profile_dir),
-        env=display_env,
-    )
+    if windows_before:
+        existing_window = choose_target_window(windows_before, None, get_active_window_id(), set())
+        open_url_in_existing_window(existing_window.window_id, url)
+    else:
+        open_url(
+            url,
+            new_window=True,
+            profile_dir=Path(session_state.profile_dir),
+            env=display_env,
+        )
     time.sleep(2.0)
     if not list_chrome_windows():
         raise SystemExit("failed to open Chrome inside Xephyr session")
@@ -1128,7 +1234,10 @@ def capture_item(
         existing_window = choose_target_window(before_windows, window_hint or None, active_window_id, set())
         activate_window(existing_window.window_id)
         time.sleep(0.6)
-    open_url(url, new_window=not before_windows, profile_dir=chrome_profile_dir)
+    if existing_window is not None:
+        open_url_in_existing_window(existing_window.window_id, url)
+    else:
+        open_url(url, new_window=True, profile_dir=chrome_profile_dir)
     time.sleep(wait_seconds)
     if existing_window is not None:
         refreshed_window = get_window_by_id(existing_window.window_id)
