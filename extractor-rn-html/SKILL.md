@@ -51,7 +51,7 @@ Use this skill for tasks like:
 - The current Linux X11 flow starts with:
 
 ```bash
-python3 extractor-rn-html/scripts/extractor_x11.py '<url1>' '<url2>'
+python3 extractor-rn-html/scripts/extractor_html_x11.py '<url1>' '<url2>'
 ```
 
 - After extraction succeeds, run image analysis on the same output directory:
