@@ -2296,6 +2296,7 @@ def capture_item(url: str,
 		tail_probe_rounds = 0
 		while page_index < max_pages:
 			log_event("capture_item.page.start", item_index=item_index, page_index=page_index + 1)
+			# Try to expand replies
 			expanded_count = expand_visible_reply_links(
 				target_window.window_id, geometry, controller, temp_capture_dir, page_index + 1, )
 			scroll_x, scroll_y = comment_panel_point(geometry)

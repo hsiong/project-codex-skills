@@ -1,6 +1,6 @@
 ---
 name: commit_english
-description: "当用户做Git 提交时触发，例如“英文commit”“commit”。它处理当前工作区内允许访问的 Git 已知改动；不用于改代码、访问未跟踪文件或提交受限路径。"
+description: "当用户做Git 提交时触发，例如'english commit'“英文commit”“commit”。它处理当前工作区内允许访问的 Git 已知改动；不用于改代码、访问未跟踪文件或提交受限路径。"
 ---
 
 # Commit
