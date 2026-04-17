@@ -129,7 +129,7 @@ def log_event(stage: str, **kwargs: object) -> None:
 	timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 	if kwargs:
 		detail_text = ", ".join(f"{key}={format_log_value(value)}" for key, value in kwargs.items())
-		RED = "\033[31m"
+		RED = "\033[35m" # MAGENTA
 		RESET = "\033[0m"
 		print(f"[{timestamp}] {RED} [{stage}] {RESET} {detail_text}", flush=True)
 		return
@@ -485,6 +485,11 @@ def open_url(url: str,
 		command.extend(
 			[f"--user-data-dir={profile_dir}", "--no-first-run", "--no-default-browser-check", ]
 		)
+	# CDP
+	from cdp_x11 import CDP_DEBUG_PORT
+	command.extend(
+		[f"--remote-debugging-port={CDP_DEBUG_PORT}", "--remote-allow-origins=*", ]
+	)
 	command.append(url)
 	spawn_background_process(command, env=env)
 
@@ -1008,7 +1013,6 @@ class XController:
 def comment_panel_point(geometry: dict[str, int], y_ratio: float = 0.72) -> tuple[int, int]:
 	return (geometry["x"] + int(geometry["width"] * 0.87), geometry["y"] + int(geometry["height"] * y_ratio),)
 
-
 def expand_visible_reply_links(window_id: str,
                                geometry: dict[str, int],
                                controller: XController,
@@ -1056,7 +1060,14 @@ def expand_visible_reply_links(window_id: str,
 				controller.scroll_down(3, x=scroll_x, y=scroll_y)
 			sleep_randomized(0.7, jitter_ratio=0.4, min_seconds=0.35, max_seconds=1.1)
 			continue
-		controller.click(geometry["x"] + next_target.x, geometry["y"] + next_target.y)
+		
+		from cdp_x11 import cdp_click_expand_reply_near_target
+		window = get_window_by_id(window_id)
+		clicked, detail = cdp_click_expand_reply_near_target(
+			next_target, geometry, window_title_hint=window.title if window else None, )
+		log_event(
+			"expand_reply.cdp_probe", target_x=next_target.x, target_y=next_target.y, clicked=clicked, detail=detail, )
+
 		click_targets.append((next_target.x, next_target.y))
 		attempts += 1
 		sleep_randomized(0.9, jitter_ratio=0.4, min_seconds=0.45, max_seconds=1.45)
@@ -1894,7 +1905,11 @@ HTML:
 ```html
 {html_chunk}
 ```"""
-		parsed = extract_json_object(client.chat(user_prompt, chunk_size=chunk_size, system_prompt=system_prompt))
+		raw_text = client.chat(user_prompt, chunk_size=chunk_size, system_prompt=system_prompt)
+		if not raw_text: # retry
+			log_event("analyze_html.chunk.retry", chunk_index=index, system_prompt=system_prompt)
+			raw_text = client.chat(user_prompt, chunk_size=chunk_size, system_prompt=system_prompt)
+		parsed = extract_json_object(raw_text)
 		chunk_results.append(
 			{
 				"title": normalize_text_field(parsed.get("title")),
