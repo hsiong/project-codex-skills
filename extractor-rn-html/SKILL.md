@@ -1,6 +1,6 @@
 ---
 name: extractor-rn-html
-description: Use only when the user sends `extractor-rn-html <link>`. This skill handles the X11/Xephyr GUI Chrome flow that opens the link, expands comments and replies, exports expanded HTML, runs the bundled Ollama-compatible analysis, then runs image recognition on the extractor output and writes results into `manifest.json` and `REPORT.md`. Do not trigger for screenshot-only parsing, curl/headless scraping, or ordinary coding work.
+description: Use only when the user sends `extractor-rn-html <link>`. This skill handles the X11/Xephyr GUI Chrome flow that opens the link, expands comments and replies, exports expanded HTML, runs the bundled Ollama-compatible analysis, then runs image recognition on the extractor output and writes results into `manifest.json` and `RESULT.md`. Do not trigger for screenshot-only parsing, curl/headless scraping, or ordinary coding work.
 ---
 
 # Chrome HTML Extractor (X11)
@@ -57,7 +57,7 @@ python3 extractor-rn-html/scripts/extractor_html_x11.py '<url1>' '<url2>'
 - After extraction succeeds, run image analysis on the same output directory:
 
 ```bash
-python3 extractor-rn-html/scripts/analyse_x11.py --out-dir <extractor_output_dir>
+python3 extractor-rn-html/scripts/extractor_image.py --out-dir <extractor_output_dir>
 ```
 
 - Common overrides:
