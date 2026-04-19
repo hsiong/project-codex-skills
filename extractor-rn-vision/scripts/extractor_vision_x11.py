@@ -1432,7 +1432,7 @@ def main() -> int:
         )
         for index, url in enumerate(urls, start=1)
     ]
-    (out_dir / "REPORT.md").write_text(
+    (out_dir / "RESULT.md").write_text(
         build_report(results, out_dir),
         encoding="utf-8",
     )
