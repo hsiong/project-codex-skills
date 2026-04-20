@@ -1,6 +1,6 @@
 ---
 name: java-code-style
-description: "当用户要生成、补全、修改或评审 Java 后端代码时触发，例如“补个 controller”“写个 service”“改一下 DTO”。它按现有项目风格产出最小改动的 Java 代码；不用于前端、运维或与 Java 无关的任务。"
+description: "当用户要生成、补全、修改或评审 Java 后端代码时触发。它按现有项目风格产出最小改动的 Java 代码；不用于前端、运维或与 Java 无关的任务。"
 ---
 
 # Java Code Style
@@ -60,6 +60,7 @@ public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
 - request DTO 中必填字段使用 `@NotBlank` 或 `@NotNull`。
 - 必填校验注解必须补充 `message`，格式优先使用“xxx不能为空”。
 - 字符串类型必填优先使用 `@NotBlank`；非字符串对象、数字或集合是否为空校验按类型选择 `@NotNull`。
+- DTO 不要使用内部类
 
 示例：
 
