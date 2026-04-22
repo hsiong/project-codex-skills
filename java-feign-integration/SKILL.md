@@ -31,6 +31,8 @@ FeignRequestInterceptor
 FeignResponseDecoder
 ```
 
+否则 参考以上代码，补齐 `FeignConfiguration`/`FeignLogger`/`FeignRequestInterceptor`/`FeignResponseDecoder`
+
 Demo：
 ```
 @FeignClient(
@@ -61,6 +63,7 @@ Demo：
 - service 中补充必要注释，重点说明参数转换、异常分支和接口结果判定。
 - 如果对方接口返回是通用包裹结构，Decoder 负责统一拆包；service 不要重复写同样的拆包逻辑。
 - FeignClient 接口禁止返回 void
+- FeignClient url 使用 `${xxx}` 代替硬编码
 
 ## 默认工作流
 
