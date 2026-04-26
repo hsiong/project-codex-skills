@@ -1,7 +1,7 @@
 interface:
   display_name: "GitHub Issue Writer"
-  short_description: "查重并生成英文 GitHub issue 草稿"
-  default_prompt: "Use $github-issue-generator to check for similar issues first, then draft an English Markdown issue from the repository template if needed."
+  short_description: "基于当前 Git 修改查重并生成英文 issue 草稿"
+  default_prompt: "Use $github-issue-generator to read the relevant git diff, check for similar issues first, then draft an English Markdown issue from the repository template if needed."
 
 policy:
   allow_implicit_invocation: true
