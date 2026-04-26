@@ -95,9 +95,10 @@ public class CreateOrderRequestDTO {
 
 ## 测试代码约定
 
+- 测试类如需调用 api 接口, 请基于 `ynfy-tool-httpconnect` 实现
 - 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
 - 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
-- 无需你自动测试，我自行手动测试即可
+- 除非用户要求, 无需你自动测试，我自行手动测试即可
 
 ## Controller 约束
 
@@ -121,7 +122,8 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 }
 ```
 
-
+## sql
++ 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{ddyyhhmmss}.sql`
 
 ## 生成代码时的执行方式
 
