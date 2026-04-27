@@ -7,14 +7,6 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 
 按下面规则生成 Java 代码，并优先兼容用户当前项目已有风格；如果项目现有写法与本 skill 不冲突，保持一致。
 
-## 核心规范
-
-- 尽量避免重复代码，但不要为了“一两行重复代码”强行拆出额外私有方法、工具类或抽象层
-- 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
-- 如果没有复用代码，直接保留在一个完整的大方法中，优先保证调用链直观
-- 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
-- 除非用户明确要求，直接修改相关代码即可
-
 ## 注释
 
 - 为所有方法补充 JavaDoc。
@@ -66,6 +58,8 @@ public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
 - 字符串类型必填优先使用 `@NotBlank`；非字符串对象、数字或集合是否为空校验按类型选择 `@NotNull`。
 - DTO 不要使用内部类
 - 生成 request DTO 时，同步补齐 `@Schema`、必填校验注解和 `message`。
+- 使用了`@NotBlank`就无需再使用`@JsonSetter(nulls = Nulls.SKIP)`
+- 驼峰命名接口无需使用 `@JsonProperty` 除非是必须传入或接收 下划线命名字段
 
 示例：
 
@@ -126,8 +120,13 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 + 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{ddyyhhmmss}.sql`
 + 如果表已经存在, 请不要直接改动建表语句, 而是使用 'alter table' 命令
 
-## 生成代码时的执行方式
+## 核心规范
 
+- 尽量避免重复代码，但不要为了“一两行重复代码”强行拆出额外私有方法、工具类或抽象层
+- 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
+- 如果没有复用代码，直接保留在一个完整的大方法中，优先保证调用链直观
+- 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
+- 除非用户明确要求，直接修改相关代码即可
 - 生成 service 方法时，把主要逻辑写完整，不要只留“TODO”或空壳实现。
 - 使用框架内已有的日志工具，在关键节点 加入 日志打印
 - 缩进使用 tab
@@ -140,6 +139,6 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
   # Instead of:
   # CustomerDingTalkRobotDTO customerInfo = restCustomDataService.getDingTalkRobotCustomer(request.getProfileId());
   ```
-
+- 同一类的代码, 名称前缀应相同, 比如 `XXXCallbackService` 命名不便管理   应该命名 `CallbackXXXService`  这样都在一起
 
 
