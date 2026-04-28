@@ -53,6 +53,7 @@ FeignResponseDecoder
 - 或者如果项目里已有可复用的 decoder / interceptor / config，优先在原有基础上补代码，不重复造轮子。
 
 - 否则 参考以上代码，补齐 `FeignConfiguration`/`FeignLogger`/`FeignRequestInterceptor`/`FeignResponseDecoder`
+> Interceptor 禁止使用 `@Component`
 
 Demo：
 ```
