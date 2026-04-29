@@ -43,6 +43,8 @@ def analyze_image(client: RnOllamaClient, image_path: Path, page_url: str) -> st
         "请直接描述这张图片的可见内容，只返回简洁中文，不要 markdown，不要分点，不要补充推测。"
         "如果图片里主要是文字、界面、海报、人物、商品、风景，请按实际看到的内容描述。"
     )
+    # num_ctx/chunk_size 不是按 base64 字符长度直接算，但视觉模型会把图片编码成视觉 tokens。图片越大、文字越多、细节越密，占用上下文越多。
+    # 使用 8k 上下文，应该就能够兼顾大多数情况。
     return client.chat(prompt, chunk_size=8000, images=[image_base64]).strip()
 
 
