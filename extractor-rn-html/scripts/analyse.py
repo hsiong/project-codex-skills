@@ -128,6 +128,7 @@ def run_analysis(result_path: Path,
 	print_log("analysis.start", result_path=result_path, analysis_path=analysis_path, model=model)
 	analysis_text = client.chat(system_prompt, user_prompt, chunk_size, max_predict)
 	analysis_path.write_text(analysis_text + "\n", encoding="utf-8")
+	result_path.write_text(analysis_text + "\n\n" + result_text + "\n", encoding="utf-8")
 	print_log("analysis.done", analysis_path=analysis_path, content_length=len(analysis_text))
 	return analysis_path
 
