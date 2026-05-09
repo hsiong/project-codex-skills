@@ -18,6 +18,7 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 - 关键代码必须加注释，重点解释业务判断、分支原因、边界处理和数据转换，不写无意义的逐行注释。
 
 
+
 示例：
 
 ```java
@@ -60,6 +61,8 @@ public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
 - 生成 request DTO 时，同步补齐 `@Schema`、必填校验注解和 `message`。
 - 使用了`@NotBlank`就无需再使用`@JsonSetter(nulls = Nulls.SKIP)`
 - 驼峰命名接口无需使用 `@JsonProperty` 除非是必须传入或接收 下划线命名字段
+- 上下文拆成独立类
+- 不要全参数赋值, 先new再set, 避免连续类型赋值异常
 
 示例：
 
@@ -117,7 +120,7 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 ```
 
 ## sql
-+ 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{ddyyhhmmss}.sql`
++ 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`
 + 如果表已经存在, 请不要直接改动建表语句, 而是使用 'alter table' 命令
 
 ## 核心规范
@@ -139,5 +142,5 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
   # CustomerDingTalkRobotDTO customerInfo = restCustomDataService.getDingTalkRobotCustomer(request.getProfileId());
   ```
 - 同一类的代码, 名称前缀应相同, 比如 `XXXCallbackService` 命名不便管理   应该命名 `CallbackXXXService`  这样都在一起
-
+- 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
 
