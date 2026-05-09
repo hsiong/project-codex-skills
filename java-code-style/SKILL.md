@@ -122,6 +122,8 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 ## sql
 + 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`
 + 如果表已经存在, 请不要直接改动建表语句, 而是使用 'alter table' 命令
++ 新增的表和字段, 需要加入注释
++ 常用查询字段需要添加索引
 
 ## 核心规范
 
@@ -143,4 +145,5 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
   ```
 - 同一类的代码, 名称前缀应相同, 比如 `XXXCallbackService` 命名不便管理   应该命名 `CallbackXXXService`  这样都在一起
 - 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
+- 新增的文件自动 `git add`
 
