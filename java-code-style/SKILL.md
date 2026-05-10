@@ -63,6 +63,7 @@ public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
 - 驼峰命名接口无需使用 `@JsonProperty` 除非是必须传入或接收 下划线命名字段
 - 上下文拆成独立类
 - 不要全参数赋值, 先new再set, 避免连续类型赋值异常
+- 禁止使用 `@TableField(exist = false)` , 而是应该使用单独的 DTO 或 VO
 
 示例：
 
@@ -125,10 +126,14 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 + 新增的表和字段, 需要加入注释
 + 常用查询字段需要添加索引
 
+## 缓存
+- 提到缓存, 请使用 `@Cacheable`
+- 除非用户特意声明, 否则不存储 `null` 值, 使用 `unless = "#result == null"`
+
 ## 核心规范
 
 - 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
-- 重点: 没有复用的代码, 禁止单独抽成方法, 除非这个代码块有明显的业务含义并超过了 15 行
+- 重点: 没有复用的代码, 禁止单独抽成方法, 除非这个代码块有明显的业务含义并超过了 50 行
 - 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
 - 除非用户明确要求，直接修改相关代码即可
 - 生成 service 方法时，把主要逻辑写完整，不要只留“TODO”或空壳实现。
@@ -146,4 +151,4 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 - 同一类的代码, 名称前缀应相同, 比如 `XXXCallbackService` 命名不便管理   应该命名 `CallbackXXXService`  这样都在一起
 - 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
 - 新增的文件自动 `git add`
-
+- 除非用户明确要求, 禁止使用 `Map`
