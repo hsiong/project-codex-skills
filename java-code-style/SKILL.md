@@ -90,6 +90,7 @@ public class CreateOrderRequestDTO {
 - 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
 - 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
 - 使用 `xxxProperties` 命名
+- 如需使用常量, 放到 `constant` 文件夹下合适的类中
 
 ## 测试代码约定
 
@@ -138,6 +139,11 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 提到缓存, 请使用 `@Cacheable`
 - 除非用户特意声明, 否则不存储 `null` 值, 使用 `unless = "#result == null"`
 
+## 方法签名与重载约束
+- 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
+- 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
+- 已有方法需要新增业务参数时，优先在当前真实调用点直接补齐参数，保持调用链最短。
+
 ## 核心规范
 
 - 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
@@ -160,3 +166,4 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
 - 新增的文件自动 `git add`
 - 除非用户明确要求, 禁止使用 `Map`
+
