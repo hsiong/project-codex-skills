@@ -125,6 +125,14 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 + 如果表已经存在, 请不要直接改动建表语句, 而是使用 'alter table' 命令
 + 新增的表和字段, 需要加入注释
 + 常用查询字段需要添加索引
++ 新表必须包括以下字段
+```
+id        VARCHAR2(32) NOT NULL,
+create_by VARCHAR2(32) DEFAULT '' NOT NULL,
+create_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+update_by VARCHAR2(32),
+update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
+```
 
 ## 缓存
 - 提到缓存, 请使用 `@Cacheable`
