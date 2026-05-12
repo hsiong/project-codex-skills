@@ -17,8 +17,6 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 - 生成注释时，优先解释“为什么这样处理”，不是重复代码字面意思。
 - 关键代码必须加注释，重点解释业务判断、分支原因、边界处理和数据转换，不写无意义的逐行注释。
 
-
-
 示例：
 
 ```java
@@ -49,6 +47,33 @@ public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
 - 只有在项目本身明确存在数据库 CRUD 分层约定，或者用户明确要求时，才补 service impl。
 - 不要把核心业务逻辑直接写在 controller、feign 接口、RPC 接口定义或 API 声明层。
 - 如果同时生成 controller 和 service，先保证接口签名清晰，再把完整逻辑落到 service。
+
+## Controller 约束
+
+- Controller 方法使用 `@Operation` 描述接口用途。
+- 优先使用 Post 请求，除非用户明确要求或场景天然更适合 Get。
+- 查询接口方法名以 `getXXX` 形式命名。
+- Controller 返回统一使用 `Result` 类。
+- Controller 内部只做收参、基础校验、调用 service、封装 `Result`，不要下沉业务实现。
+- 生成 controller 时，只保留参数接收、基础校验、调用 service、封装返回。
+- 生成接口定义时，保证命名、入参、返回值和实现类保持一致。
+- 生成 controller 时，同步检查是否满足 `@Operation`、Post 优先、查询接口 `getXXX`、`Result` 返回这几项约束。
+
+
+示例：
+
+```java
+@PostMapping("/getOrderDetail")
+@Operation(summary = "查询订单详情")
+public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailRequestDTO requestDTO) {
+    return Result.success(orderService.getOrderDetail(requestDTO));
+}
+```
+
+## Service
+
+- 生成 service 方法时，把主要逻辑写完整，不要只留“TODO”或空壳实现。
+- 同一类的代码, 名称前缀应相同, 比如 `XXXCallbackService` 命名不便管理   应该命名 `CallbackXXXService`  这样都在一起
 
 ## 实体与请求对象
 
@@ -82,44 +107,14 @@ public class CreateOrderRequestDTO {
 }
 ```
 
-## 配置项约束
-
-- 禁止访问任何 `application-*.yml` 文件，但可以访问 `application.yml`
-- 注意，代码中使用的配置项要与 `application.yml` 配置一致, 如 `${xxx}`, `@ConfigurationProperties` 等
-- 如需新增配置项，默认把配置项加入 `application.yml`, 并引用 `${config.xxx.xxx}`
-- 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
-- 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
-- 使用 `xxxProperties` 命名
-- 如需使用常量, 放到 `constant` 文件夹下合适的类中
-
 ## 测试代码约定
 
 - 测试类如需调用 api 接口, 请基于 `ynfy-tool-httpconnect` 实现
+- 输出 excel, 请基于 `ynfy-tool-excel`
 - 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
 - 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
 - 除非用户要求, 无需你自动测试，我自行手动测试即可
 
-## Controller 约束
-
-- Controller 方法使用 `@Operation` 描述接口用途。
-- 优先使用 Post 请求，除非用户明确要求或场景天然更适合 Get。
-- 查询接口方法名以 `getXXX` 形式命名。
-- Controller 返回统一使用 `Result` 类。
-- Controller 内部只做收参、基础校验、调用 service、封装 `Result`，不要下沉业务实现。
-- 生成 controller 时，只保留参数接收、基础校验、调用 service、封装返回。
-- 生成接口定义时，保证命名、入参、返回值和实现类保持一致。
-- 生成 controller 时，同步检查是否满足 `@Operation`、Post 优先、查询接口 `getXXX`、`Result` 返回这几项约束。
-
-
-示例：
-
-```java
-@PostMapping("/getOrderDetail")
-@Operation(summary = "查询订单详情")
-public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailRequestDTO requestDTO) {
-    return Result.success(orderService.getOrderDetail(requestDTO));
-}
-```
 
 ## sql
 + 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`
@@ -139,18 +134,33 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 提到缓存, 请使用 `@Cacheable`
 - 除非用户特意声明, 否则不存储 `null` 值, 使用 `unless = "#result == null"`
 
-## 方法签名与重载约束
+## 方法
+
 - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
 - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
 - 已有方法需要新增业务参数时，优先在当前真实调用点直接补齐参数，保持调用链最短。
+- 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
+- 重点: 没有复用的代码, 禁止单独抽成方法, 除非这个代码块有明显的业务含义并超过了 50 行
+
+
+## 变更边界
+
+- 禁止修改与用户当前需求无关的代码、配置占位符、注释、格式、命名、依赖、接口 URL、调度表达式等内容。即使发现现有代码看起来不够优雅、不够一致、可能有更好的写法，也只能在回复中提示，不得顺手修改。
+- 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
+- 除非用户明确要求，直接修改相关代码即可
+
+## 配置项约束
+
+- 禁止访问任何 `application-*.yml` 文件，但可以访问 `application.yml`
+- 注意，代码中使用的配置项要与 `application.yml` 配置一致, 如 `${xxx}`, `@ConfigurationProperties` 等
+- 如需新增配置项，默认把配置项加入 `application.yml`, 并引用 `${config.xxx.xxx}`
+- 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
+- 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
+- 使用 `xxxProperties` 命名
+- 如需使用常量, 放到 `constant` 文件夹下合适的类中
 
 ## 核心规范
 
-- 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
-- 重点: 没有复用的代码, 禁止单独抽成方法, 除非这个代码块有明显的业务含义并超过了 50 行
-- 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
-- 除非用户明确要求，直接修改相关代码即可
-- 生成 service 方法时，把主要逻辑写完整，不要只留“TODO”或空壳实现。
 - 使用框架内已有的日志工具，在关键节点 加入 日志打印
 - 缩进使用 tab
 - keep indents on empty lines
@@ -162,8 +172,6 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
   # Instead of:
   # CustomerDingTalkRobotDTO customerInfo = restCustomDataService.getDingTalkRobotCustomer(request.getProfileId());
   ```
-- 同一类的代码, 名称前缀应相同, 比如 `XXXCallbackService` 命名不便管理   应该命名 `CallbackXXXService`  这样都在一起
 - 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
 - 新增的文件自动 `git add`
 - 除非用户明确要求, 禁止使用 `Map`
-
