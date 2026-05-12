@@ -1,0 +1,7 @@
+interface:
+  display_name: "Issue Branch Committer"
+  short_description: "根据 Issue 内容解析编号和标题，自动切分支并按格式提交改动。"
+  default_prompt: "Use $issue-commit to parse the provided issue text (finding titles and #issue_codes), map current git diffs to these issues, and push changes directly to remote 'fix/issue_code' branches. Use a 'commit, push to HEAD:remote_branch, then reset --soft' workflow to ensure no local branches are created and no local commit history is added."
+
+policy:
+  allow_implicit_invocation: true
