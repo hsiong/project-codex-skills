@@ -110,7 +110,7 @@ public class CreateOrderRequestDTO {
 ## 测试代码约定
 
 - 测试类如需调用 api 接口, 请基于 `ynfy-tool-httpconnect` 实现
-- 输出 excel, 请基于 `ynfy-tool-excel`
+- 输出 excel, 除非用户要求, 请基于 `EasyExcel`
 - 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
 - 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
 - 除非用户要求, 无需你自动测试，我自行手动测试即可
