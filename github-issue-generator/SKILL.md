@@ -1,107 +1,58 @@
 ---
 name: github-issue-generator
-description: "当用户要基于当前 Git 修改生成 GitHub issue 草稿时触发，例如“根据这次改动写 issue”“先查重再按 diff 总结 issue”“把当前修改整理成 GitHub issue 文件”“这些大改动拆成多个 issue”。它负责读取对应 git diff、优先把大批量或多主题修改拆成多个 issue、联网查重，并在 `file/issue/` 下生成英文 Markdown 草稿；不用于审查现有代码问题、规划新功能或默认提交远程 issue。"
+description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明确要求提交 issue 时触发，例如“生成 issue”“根据这次改动提 issue”“按功能拆 issue”“先查重再写 GitHub issue”“提交这些 issue”。它处理当前工作区内允许访问的 Git 已知改动，按功能拆分、联网查重并生成英文 issue；不用于代码审查、规划新需求、修改代码或提交 commit。"
 ---
 
 # GitHub Issue Generator
 
 ## 适用场景
 
-- 用户要你根据当前仓库的 Git 修改撰写 issue。
-- 用户要求先检查是否已有类似 issue，再根据 diff 决定是否新建。
-- 用户要求 issue 内容遵循仓库模板、使用英文、生成 Markdown 文件。
+- 用户要你根据当前工作区生成 GitHub issue 草稿。
+- 用户要你尽量按功能拆成多个 issue。
+- 用户要你先查重，再生成英文 issue。
+- 用户明确要求提交 issue 时，按草稿文件调用脚本提交。
 
-## 强约束
+## 分组规则
 
-- issue 内容必须来自对应的 Git 修改。
-- 不要把任务理解为“检查现有代码有什么问题并提出 issue”。
-- 不要脱离 diff 额外扩展需求、架构建议或代码审查结论。
-- 先查重，后起草。只要仓库可访问，就必须先联网检查现有 issues。
-- 若已有明显相似 issue，默认不重复起草，直接返回已有 issue 链接、相似点和差异点。
-- 优先遵循仓库自己的 `.github/ISSUE_TEMPLATE`、issue forms 或模板约束。
-- 如果仓库没有模板，再使用通用结构起草，标题前缀按类型选择：`Bug:`、`Feature:`、`Refactor:`、`Docs:`、`Question:`。
-- 输出语言必须是英文。
-- 输出格式必须是 Markdown。
-- 默认将草稿写入当前仓库的 `file/issue/` 目录，每个 issue 一个 `.md` 文件，不直接调用 GitHub API 或网页操作去提交
-  issue，除非用户明确要求。
-- 一批改动默认先按多个候选 issue 处理。必须先按相对独立的问题、功能、模块或行为变化拆分，再分别查重和起草；不要因为用户用了单数“issue”或
-  diff 来自同一批修改就合并成一个大 issue。
-- 拆分维度包括独立问题、模块、构建、工程拓扑、运行时归属、API 和行为语义，尽可能细。
-- 一个 issue 如果同时包含 build、runtime、public API、docs、deploy 等多个维度，必须重新拆分，除非能逐项证明不可分。
-- 如果最终只生成一个 issue，最终回复必须简短说明为什么所有改动属于同一个 issue。
-- 由该 skill 新生成的 `file/issue/*.md` 文件不要自动执行 `git add`。
+- 除了纯编程代码以外（`.java`/`.py` 等），不同文件（路径不同或名称不同）默认分成不同 issue。
+- 多个 issue 并存时，按改动量从大到小排序后依次处理。
+- 改动量以该功能分组的增删行总数估算，优先看 `git diff --numstat` 和 `git diff --stat`。
 
-## Granularity Rules
+### 编程代码分组规则
 
-Before drafting issues, classify each diff candidate by change dimension:
+- 可以按同一业务功能生成一个 issue：
+  - 同一业务功能必须是颗粒度很细的具体业务，比如 `集成一个三方接口` 或 `单表 CRUD` 涉及的 controller、service、impl、feign、dto、测试、文档等。
+  - 多个三方接口、多表 CRUD 或不同业务模块，不能视为同一业务。
+  - 描述里出现 `/`、`和`、`及`、`以及`、`并`、`等` 这类并列关系时，优先拆分。
+- 不同业务功能分成不同 issue。
+- 难以判断该合并还是拆分时，优先拆成更小的独立 issue。
+- 除非单个文件只涉及一个不可拆的修改，否则 issue 正文必须写清具体变更依据。
 
-- build/project topology
-- dependency or version management
-- public API or annotation/contract semantics
-- runtime configuration keys or environment contract
-- module ownership or package relocation
-- runtime bean/configuration ownership
-- business behavior
-- documentation
-- deployment/operations
-- tests
+## Issue 内容要求
 
-Each distinct dimension should become a separate issue by default.
+- Issue 标题、正文和最终 issue 相关输出必须使用英文。
+- 标题使用 GitHub 常见 issue 前缀，优先选择：`Bug:`、`Feature:`、`Refactor:`、`Docs:`、`Chore:`、`Test:`。
+- 标题简单直接具体，不写文件名，不写序号。
+- 正文使用 Markdown，短横线列点，不要编号。
+- 优先遵循仓库 `.github/ISSUE_TEMPLATE`、issue forms 或模板要求。
+- 如果没有模板，按类型使用简洁结构。
+- 不要把任务理解为“检查现有代码有什么问题并提出 issue”；issue 内容只能来自对应 Git 修改。
 
-Do not merge changes only because they support the same broad refactor goal. A shared direction such as "make the framework standalone", "clean up modules", or "modernize the project" is not
-enough to merge candidates.
-
-An issue must not mix multiple high-impact dimensions unless the changes are mechanically inseparable. If merged, the draft must explicitly explain why they cannot be split.
-
-
-## 工作流
-
-1. 获取对应的 Git 修改：
-    - 如果用户明确指定 commit、branch、PR 或文件范围，只读取对应范围的 diff。
-    - 如果工作区没有可用 diff，先告诉用户缺少 Git 修改上下文，不要根据现有代码自行生成 issue。
-    - 获取 diff 之前，不要先做代码审查、架构分析或问题扫描。
-
-2. 从 diff 中提炼 issue 所需上下文：
-    - 目标仓库
-    - 本次修改暴露或修复的问题、需求目标
-    - 影响范围
-    - 行为变化、相关模块、可从 diff 推断的复现信息
-    - 无法从 diff 判断的关键信息用简短 `TODO` 占位
-
-3. 拆分 issue 候选：
-    - 先列出候选主题，再决定候选边界。
-    - 对每个候选记录对应的 diff 依据。
-
-4. 联网查重：
-    - 优先搜索目标仓库的 GitHub issues。
-    - 关键词基于候选相关 diff 中的报错信息、核心行为、模块名、特性名组合。
-    - 若仓库启用了 discussions，必要时一并检查是否已有同类讨论。
-
-5. 判断是否重复：
-    - 对每个候选给出重复判断。
-    - 对重复候选记录已有 issue 链接、相似原因和差异点。
-
-6. 读取本地仓库模板：
-    - 检查 `.github/ISSUE_TEMPLATE/` 下的 `.md`、`.yml`、`.yaml` 模板。
-    - 若存在 issue form，按字段语义转写为 Markdown 草稿。
-    - 若存在多个模板，选择与当前类型最匹配的模板。
-
-7. 生成 issue 草稿文件：
-    - 保留模板要求的标题、复选框、段落结构和字段语义。
-    - 信息不足时，优先根据 diff 合理补全。
-    - 若关键事实缺失且无法安全推断，使用简短占位符，例如 `TODO: add reproduction details`。
-    - 确保 `file/issue/` 目录存在。
-    - 每个非重复候选生成一个独立 Markdown 文件，命名为 `file/issue/<type>-<short-kebab-title>.md`；如同类型同标题冲突，追加
-      `-2`、`-3`。
-    - 文件内容应是可直接复制到 GitHub 的 issue 正文；标题可作为文件内第一行 `# Title`。
-
-## 默认输出结构
-
-若仓库无模板，可按下列结构生成：
+通用结构：
 
 ```markdown
-# Title
+## Summary
 
+## Context
+
+## Proposed Change
+
+## Impact
+```
+
+Bug 类结构：
+
+```markdown
 ## Summary
 
 ## Steps to Reproduce
@@ -110,32 +61,70 @@ An issue must not mix multiple high-impact dimensions unless the changes are mec
 
 ## Actual Behavior
 
-## Environment
-
-## Additional Context
+## Impact
 ```
 
-特性类 issue 可改为：
+## 执行流程
 
-```markdown
-# Title
+1. 获取 Git 已知改动：
+   - 如果用户指定 commit、branch、PR、文件或目录，只读取对应范围。
+   - 如果没有可用 diff，停止并说明缺少 Git 修改上下文。
+   - 获取 diff 前不要做代码审查、架构扫描或顺手分析。
 
-## Summary
+2. 过滤禁区路径：
+   - 禁区路径有改动时，只说明已排除，不读取内容，不提交 issue。
+   - 未跟踪文件一律忽略。
 
-## Problem
+3. 按功能拆分候选 issue：
+   - 先列出候选主题，再确定边界。
+   - 每个候选记录对应文件和 diff 依据。
 
-## Proposed Change
+4. 查重：
+   - 先查重，后起草。只要仓库可访问，就必须先联网检查现有 issues。
+   - 优先使用 `gh issue list`、GitHub API 或网页搜索目标仓库 issue。
+   - 关键词来自候选的模块名、接口名、异常信息、行为变化和标题核心词。
+   - 已有明显相似 issue 时，默认不重复起草，直接记录已有 issue 链接、相似点和差异点。
 
-## Alternatives Considered
+5. 生成 issue 草稿：
+   - 对每个非重复候选生成标题和 Markdown 正文。
+   - 信息不足但可从 diff 推断时合理补全；无法推断时使用简短 `TODO` 占位。
+   - 默认将草稿写入当前仓库的 `file/issue/` 目录，每个 issue 一个 `.md` 文件。
+   - 文件命名为 `file/issue/<type>-<short-kebab-title>.md`；如同名冲突，追加 `-2`、`-3`。
+   - 这些草稿文件不属于 commit 范围，除非用户另外要求。
 
-## Additional Context
-```
+6. 提交 issue：
+   - 只有用户明确要求提交 issue 时，才直接调用本 skill 的 `scripts/submit_issues.sh`。
+   - 调用前确认草稿已写入 `file/issue/`。
+   - 脚本参数优先使用目标仓库 `owner/repo` 和草稿目录：`bash scripts/submit_issues.sh <owner/repo> file/issue`。
+   - Token 必须来自 `GITHUB_TOKEN` 或 `GH_TOKEN` 环境变量。
 
-## 文件与输出要求
+## 输出要求
 
-- 默认不要把完整 issue 正文全部输出到对话里；应生成到 `file/issue/*.md`。
-- 最终回复只列出生成的文件路径、对应 issue 标题，以及跳过生成的相似 issue 链接。
-- 如果发现相似 issue，优先输出“已有相似 issue”结论和链接列表。
-- 如果起草新 issue，文件内容应可直接复制到 GitHub。
-- issue 文件内容不要输出中文解释，不要附加多余操作说明，除非用户额外要求。
-- 输出不要带行号
+- 默认只生成草稿文件，不提交远程 issue。
+- 生成后按处理顺序列出草稿文件路径、issue 标题和对应改动范围。
+- 对跳过的重复候选，列出现有 issue 链接、相似点和差异点。
+- 如果用户明确要求提交，提交后列出 issue 标题、GitHub 链接和对应改动范围。
+
+## 失败处理
+
+- 若仓库无法识别或没有远程 GitHub 地址，停止并说明需要目标仓库。
+- 若用户要求提交但缺少 token，停止并说明需要 `GITHUB_TOKEN` 或 `GH_TOKEN`。
+- 若发现未跟踪文件可能影响判断，忽略它们，不访问其内容。
+- 若无法在不违反约束的前提下安全拆分 issue，停止执行并说明原因。
+
+## 强约束
+
+- 只做 issue 草稿和提交相关操作，不改用户代码，不顺手修问题，不执行 commit。
+- 只允许查看 Git 已知路径：已跟踪改动、已暂存新增、已暂存删除。
+- 禁止使用 `git add .`、`git add -A`、`git commit -a`。
+- 禁止读取或提交以下内容：
+  - `*/application.yml`
+  - `*/application-*.yml`
+  - `*/.fastRequest/*`
+  - `*/.mvn/*`
+  - `*/.idea/*`
+  - `config/.env.*`
+  - `.gitignore` 中提到的内容
+- 读取 `.gitignore`。禁止访问和提交 `.gitignore` 内提到的内容。
+- 如果变更的代码中存在 `todo`，除非用户特意说明，必须提醒用户（哪个文件：哪行代码）并终止后续 issue 提交。
+- 没有加入到 git 管理中的文件，禁止访问和自行添加。
