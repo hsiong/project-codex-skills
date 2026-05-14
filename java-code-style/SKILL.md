@@ -58,6 +58,7 @@ public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
 - 不要把核心业务逻辑直接写在 controller、feign 接口、RPC 接口定义或 API 声明层。
 - 如果同时生成 controller 和 service，先保证接口签名清晰，再把完整逻辑落到 service。
 
+
 ## Controller 约束
 
 - Controller 方法使用 `@Operation` 描述接口用途。
@@ -141,10 +142,11 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
 - 重点: 没有复用的代码, 禁止单独抽成方法, 除非这个代码块有明显的业务含义并超过了 50 行
 - 尽量避免冗余设计, 优先选择直接实现，避免无实际价值的抽象和中间层
-  - 如果两个方法的唯一区别只是传入不同的 `true/false`、常量、枚举或字符串，优先合并为一个真实方法，由调用方直接传参。
+  - 如果两个方法(包括CRUD)的唯一区别只是传入不同的 `true/false`、常量、枚举或字符串，优先合并为一个真实方法，由调用方直接传参。
   - 禁止新增只有一层转发、没有独立业务语义的包装方法。
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
   - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
+  - 纯CRUD且没有超过两次的调用, 直接使用 mapper
 
 
 ## 变更边界
