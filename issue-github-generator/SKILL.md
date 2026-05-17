@@ -1,5 +1,5 @@
 ---
-name: github-issue-generator
+name: issue-github-generator
 description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明确要求提交 issue 时触发，例如“生成 issue”“根据这次改动提 issue”“按功能拆 issue”“先查重再写 GitHub issue”“提交这些 issue”。它处理当前工作区内允许访问的 Git 已知改动，按功能拆分、联网查重并生成英文 issue；不用于代码审查、规划新需求、修改代码或提交 commit。"
 ---
 
@@ -34,10 +34,9 @@ description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明�
 - 标题使用 GitHub 常见 issue 前缀，优先选择：`Bug:`、`Feature:`、`Refactor:`、`Docs:`、`Chore:`、`Test:`。
 - 标题简单直接具体，不写文件名，不写序号。
 - 正文使用 Markdown，短横线列点，不要编号。
+- 不要把任务理解为“检查现有代码有什么问题并提出 issue”；issue 内容只能来自对应 Git 修改。
 - 优先遵循仓库 `.github/ISSUE_TEMPLATE`、issue forms 或模板要求。
 - 如果没有模板，按类型使用简洁结构。
-- 不要把任务理解为“检查现有代码有什么问题并提出 issue”；issue 内容只能来自对应 Git 修改。
-
 通用结构：
 
 ```markdown
@@ -63,6 +62,7 @@ Bug 类结构：
 
 ## Impact
 ```
+- 生成文件名: 标题.placeFirst(":", "-").replace(" ", "-")
 
 ## 执行流程
 
