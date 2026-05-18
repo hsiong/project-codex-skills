@@ -123,6 +123,7 @@ Bug 类结构：
   - `*/.fastRequest/*`
   - `*/.mvn/*`
   - `*/.idea/*`
+  - `*/file/*`
   - `config/.env.*`
   - `.gitignore` 中提到的内容
 - 读取 `.gitignore`。禁止访问和提交 `.gitignore` 内提到的内容。
