@@ -15,7 +15,7 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 - 具体业务判断、数据拼装、状态处理放在 service 或业务方法中。
 - 请求体、响应体优先使用 Pydantic 模型描述。
 - 新增接口时保持函数命名清晰，参数和返回结构稳定。
-
+- 具体方法应写到 service或者core中  , api中禁止写任何方法实现
 
 ## SQL 与 ORM
 用户要求 '入库' '持久化' 等操作, 参考本规范
@@ -26,6 +26,7 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 + `SQLAlchemy` 模型定义完全兼容 `pydantic`模型吗? 如果不兼容,  完成 `pydantic` 和 `SQLAlchemy` 模型互转方法
   + 如果读取的 `POSTGRES_URL` 为空, 则不 import SQLAlchemy 相关类, 避免报错
   + 因为很多项目无需 SQLAlchemy
++ `repo` 只负责实现最基础的 `add update delete list`, `service` 负责业务逻辑
 
 ## 实体与请求对象
 - 基于 `pydantic` 模型定义 
@@ -35,8 +36,8 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
         request_json
     )
   ```
-- 一批业务会有多个 `bean`, 分别命名为 _dto、_vo、_request
-- 新增文件位于 `bean/xxx` 目录下, 文件命名为 `业务_xxx`
+- 一批业务会有多个 `model`, 分别命名为 _dto、_vo、_request
+- 新增文件位于 `model/xxx` 目录下, 文件命名为 `业务_xxx`
 
 
 ## 方法
@@ -50,7 +51,7 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
   - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
-
+- 同一批业务只能放到 `core` 同一个文件内, API 路由只从一个 core 文件导入方法
 
 ## 变更边界
 
@@ -120,3 +121,4 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 - Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
 - 缩进使用 tab
 - keep indents on empty lines
+- 除非用户要求, 禁止使用 `async`/`await`
