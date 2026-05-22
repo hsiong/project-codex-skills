@@ -14,7 +14,6 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
   - 如果是 excel 报错相关, 因为保密原因, 你访问不了我的本地xlsx, 请你检查代码即可
 - 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
 - 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
-- 除非用户要求, 无需你自动测试，我自行手动测试即可
 - 测试的相关类也要符合 `## 实体与请求对象` 的约定
 
 ## 注释
@@ -147,7 +146,15 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
   - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
-
+- Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
+  ```
+  String profileId = request.getProfileId();
+  CustomerDingTalkRobotDTO customerInfo =
+        restCustomDataService.getDingTalkRobotCustomer(profileId);
+  # Instead of:
+  # CustomerDingTalkRobotDTO customerInfo = restCustomDataService.getDingTalkRobotCustomer(request.getProfileId());
+  ```
+- 下载接口不要返回 FileSystemResource 让框架自己处理资源流
 
 ## 变更边界
 
@@ -170,14 +177,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 使用框架内已有的日志工具，在关键节点 加入 日志打印
 - 缩进使用 tab
 - keep indents on empty lines
-- Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
-  ```
-  String profileId = request.getProfileId();
-  CustomerDingTalkRobotDTO customerInfo =
-        restCustomDataService.getDingTalkRobotCustomer(profileId);
-  # Instead of:
-  # CustomerDingTalkRobotDTO customerInfo = restCustomDataService.getDingTalkRobotCustomer(request.getProfileId());
-  ```
 - 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
 - 新增的文件自动 `git add`
 - 除非用户明确要求, 禁止使用 `Map`
+- 除非用户要求, 无需你自动测试/验证功能，只用编译检查即可, 
