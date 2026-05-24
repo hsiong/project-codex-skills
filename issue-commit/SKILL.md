@@ -9,7 +9,19 @@ description: "当用户输入包含 issue 标题和编号的内容时触发，�
 
 - 用户提供了一个或多个 issue 的详细信息（如从 GitHub 复制的列表），要求按 issue 提交代码。
 - 需要将改动直接推送到远程的 `fix/issue_code` 分支，但**完全不需要**在本地创建任何新分支。
-- 提交信息需要符合 `Closes:(#issue_code)issue_title` 格式。
+- 提交信息需要符合 `keyword: issue_title` 格式。
+  ```
+  keyword 代表某次提交的类型，比如是修复一个bug还是增加一个新的feature。所有的type类型如下：
+  feat： 新增feature
+  fix: 修复bug
+  docs: 仅仅修改了文档，比如README, CHANGELOG, CONTRIBUTE等等
+  style: 仅仅修改了空格、格式缩进、都好等等，不改变代码逻辑
+  refactor: 代码重构，没有加新功能或者修复bug
+  perf: 优化相关，比如提升性能、体验
+  test: 测试用例，包括单元测试、集成测试等
+  chore: 改变构建流程、或者增加依赖库、工具等
+  revert: 回滚到上一个版本
+  ```
 
 ## 核心流程
 
@@ -48,7 +60,6 @@ description: "当用户输入包含 issue 标题和编号的内容时触发，�
 
 - **零本地分支**：严禁使用 `git checkout -b` 或 `git branch` 创建新分支。
 - **直接推送远程**：通过 `HEAD:remote_branch` 语法直接更新远程引用。
-- **提交格式**：Message 必须严格遵守 `Closes:(#issue_code)issue_title`。
 - **本地状态保持**：推送完成后，通过 `git reset --soft` 确保本地工作区改动依然存在（或处于 staged 状态），不污染本地提交历史。
 - **作用范围**：仅处理已跟踪的文件。严禁访问或添加未跟踪文件。
 - **TODO 检查**：如果变更代码中包含 `todo`，必须提醒用户并终止提交。
