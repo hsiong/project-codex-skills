@@ -31,7 +31,7 @@ description: "当用户输入包含 issue 标题和编号的内容时触发，�
 4. **改动映射**：将每个改动的文件映射到最相关的 issue。
 5. **按 Issue 直接推送（不留痕迹）**：
    - 针对每个 issue 及其映射的文件，执行以下原子操作：
-     - **提交**：`git commit -m "Closes:(#issue_code)issue_title" <文件列表>`。
+     - **提交**：`git commit -m "提交信息" <文件列表>`。
      - **推送**：`git push origin HEAD:fix/issue_code`（将当前分支的最顶端提交推送到远程目标分支）。
      - **回滚**：`git reset --soft HEAD~1`（本地撤销该提交，保留改动。这确保了本地不产生额外的 commit 记录，且不改变分支结构）。
 6. **汇总**：列出已成功推送到远程的 issue 分支及其对应的文件清单。
