@@ -9,7 +9,7 @@ description: "当用户输入包含 issue 标题和编号的内容时触发，�
 
 - 用户提供了一个或多个 issue 的详细信息（如从 GitHub 复制的列表），要求按 issue 提交代码。
 - 需要将改动直接推送到远程的 `fix/issue_code` 分支，但**完全不需要**在本地创建任何新分支。
-- 提交信息需要符合 `keyword: issue_title` 格式。
+- 提交信息需要符合 `keyword: issue_title` 格式。移除 `issue_title` 中任何额外的 GitHub issue 前缀（如Bug:、Feature:等）
   ```
   keyword 代表某次提交的类型，比如是修复一个bug还是增加一个新的feature。所有的type类型如下：
   feat： 新增feature
@@ -49,7 +49,6 @@ description: "当用户输入包含 issue 标题和编号的内容时触发，�
   - `*/.idea/*`
   - `*/file/*`
   - `config/.env.*`
-  - `*/submit_issues.sh`
   - `.gitignore` 中提到的内容
 - 读取 `.gitignore`。禁止访问和提交 `.gitignore` 内提到的内容。
 - 如果变更的代码中存在 `todo`，除非用户特意说明，必须提醒用户（哪个文件：哪行代码）并终止后续 issue 提交。
