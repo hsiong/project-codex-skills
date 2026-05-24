@@ -173,6 +173,7 @@ For a global personal skill:
 
 ```
 ~/.agents/skills/my-review-skill/SKILL.md
+ln -sfn ~/.agents/skills ~/.gemini/skills
 ```
 
 ## 5) How to create one quickly
