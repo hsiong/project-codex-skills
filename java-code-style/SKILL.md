@@ -155,7 +155,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
   # CustomerDingTalkRobotDTO customerInfo = restCustomDataService.getDingTalkRobotCustomer(request.getProfileId());
   ```
 - 下载接口不要返回 FileSystemResource 让框架自己处理资源流
-- service 方法入参使用 dto 传参
+- service 方法入参一般使用 dto 传参, 如果是复用代码, 可以直接传入变量作为参数, 就不用非要dto了
 
 ## 变更边界
 
