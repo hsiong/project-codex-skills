@@ -28,42 +28,6 @@ description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明�
 - 难以判断该合并还是拆分时，优先拆成更小的独立 issue。
 - 除非单个文件只涉及一个不可拆的修改，否则 issue 正文必须写清具体变更依据。
 
-## Issue 内容要求
-
-- Issue 标题、正文和最终 issue 相关输出必须使用英文。
-- 标题使用 GitHub 常见 issue 前缀，优先选择：`Bug:`、`Feature:`、`Refactor:`、`Docs:`、`Chore:`、`Test:`。
-- 标题简单直接具体，不写文件名，不写序号。
-- 正文使用 Markdown，短横线列点，不要编号。
-- 不要把任务理解为“检查现有代码有什么问题并提出 issue”；issue 内容只能来自对应 Git 修改。
-- 优先遵循仓库 `.github/ISSUE_TEMPLATE`、issue forms 或模板要求。
-- 如果没有模板，按类型使用简洁结构。
-通用结构：
-
-```markdown
-## Summary
-
-## Context
-
-## Proposed Change
-
-## Impact
-```
-
-Bug 类结构：
-
-```markdown
-## Summary
-
-## Steps to Reproduce
-
-## Expected Behavior
-
-## Actual Behavior
-
-## Impact
-```
-- 生成文件名: 标题.placeFirst(":", "-").replace(" ", "-")
-
 ## 执行流程
 
 1. 获取 Git 已知改动：
@@ -112,6 +76,30 @@ Bug 类结构：
 - 若发现未跟踪文件可能影响判断，忽略它们，不访问其内容。
 - 若无法在不违反约束的前提下安全拆分 issue，停止执行并说明原因。
 
+## Issue 内容要求
+
+- Issue 标题、正文和最终 issue 相关输出必须使用英文。
+- 标题使用 GitHub 常见 issue 前缀，优先选择：`Bug:`、`Feature:`、`Refactor:`、`Docs:`、`Chore:`、`Test:`。
+- 标题简单直接具体，不写文件名，不写序号。
+- 正文使用 Markdown，短横线列点，不要编号。
+- 不要把任务理解为“检查现有代码有什么问题并提出 issue”；issue 内容只能来自对应 Git 修改。
+- 优先遵循仓库 `.github/ISSUE_TEMPLATE/*`等模板要求。
+- 如果没有模板要求，参考下面使用简洁结构。
+Bug 类结构：
+
+```markdown
+# Summary
+
+# Steps to Reproduce
+
+# Expected Behavior
+
+# Actual Behavior
+
+# Impact
+```
+- 生成文件名: 标题.placeFirst(":", "-").replace(" ", "-")
+
 ## 强约束
 
 - 只做 issue 草稿和提交相关操作，不改用户代码，不顺手修问题，不执行 commit。
@@ -130,3 +118,4 @@ Bug 类结构：
 - 如果变更的代码中存在 `todo`，除非用户特意说明，必须提醒用户（哪个文件：哪行代码）并终止后续 issue 提交。
 - 没有加入到 git 管理中的文件，禁止访问和自行添加。
 - 新增的 issue 文件, 无需 `git add`。
+- 如果没法直接提交 GitHub issue, 生成英文 issue 草稿到 file/issue
