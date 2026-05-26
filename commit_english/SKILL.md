@@ -51,7 +51,11 @@ docs: 完善自动建群功能说明
   - `*/.fastRequest/*`
   - `*/.mvn/*`
   - `*/.idea/*`
+  - `*/.antigravity/*`
+  - `*/.vscode/*`
+  - `*/.git/*`
   - `config/.env.*`
+  - `*/.DS_Store`
   - `.gitignore` 中提到的内容
 - 读取 `.gitignore`。禁止访问和提交 .gitignore 内提到的内容
 - 除非用户要求, 没有加入到 git 管理中的文件，禁止你访问和自行添加，禁止执行 `git add`命令; 即使用户要求，也不允许你读取和提交上述提到的文件
