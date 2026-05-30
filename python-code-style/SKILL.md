@@ -122,3 +122,4 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 - 缩进使用 tab
 - keep indents on empty lines
 - 除非用户要求, 禁止使用 `async`/`await`
+- 相对路径是项目项目路径, 不是 agent 相对路径 !
