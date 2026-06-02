@@ -171,7 +171,6 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
 - 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
 - 使用 `xxxProperties` 命名
-- 如需使用常量, 放到 `constant` 文件夹下合适的类中
 
 ## 核心规范
 
@@ -183,3 +182,4 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 除非用户明确要求, 禁止使用 `Map`
 - 除非用户要求, 无需你自动测试/验证功能，只用编译检查即可, 
 - 根据用户要求, 基于项目代码, 直接修改代码或给出直接可用的代码修改意见, 禁止给出`伪代码``大概是这样的代码`等等
+- 如需使用常量, 放到 `constant` 文件夹下合适的类中
