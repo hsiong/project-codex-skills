@@ -116,6 +116,12 @@ public class CreateOrderRequestDTO {
     private String title;
 }
 ```
++ 日期入参使用注解
+```
+	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	@JSONField(format = "yyyy-MM-dd HH:mm:ss")
+	@JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+```
 
 ## sql
 + 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`
