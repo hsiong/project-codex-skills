@@ -52,6 +52,10 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
   - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
 - 同一批业务只能放到 `core` 同一个文件内, API 路由只从一个 core 文件导入方法
+- Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
+- 除非用户明确要求, 禁止使用 `Map`
+- 使用框架内已有的日志工具
+- 除非用户要求, 禁止使用 `async`/`await`
 
 ## 变更边界
 
@@ -94,12 +98,14 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
   + 除非用户要求, 不需要默认值
 - 新增的具体配置, 直接在 terminal 日志中打印新增 key 和建议值, 比如 `POSTGRES_URL=xxx`
 - 如需使用常量, 放到 `config` 文件夹下合适的类中
+- 代码里的相对路径是项目项目路径, 不是 agent 相对路径；如需使用相对路径, 请自动改为绝对路径
 
 ## 强约束
 
 - 只做提交相关操作，不改用户代码，不顺手修问题，不整理格式。
 - 只允许查看 Git 已知路径：已跟踪改动、已暂存新增、已暂存删除。真正未跟踪文件一律不访问。
-- 禁止使用 `git add .`、`git add -A`、`git commit -a` 这类会扩大范围的命令。
+- 禁止使用 `git add .`、`git add -A`、`git commit -a` 添加已存在的文件。
+- 只允许你 `git add` 本次会话中你生成的文件
 - 禁止读取或提交以下内容：
   - `*/.mvn/*`
   - `*/.idea/*`
@@ -114,12 +120,6 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 
 - 先理解现有文件风格，再补全或修改代码。
 - 生成的代码应可直接落地，避免只写空壳、TODO 或伪代码。
-- 使用框架内已有的日志工具
 - 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
-- 新增的文件自动 `git add`
-- 除非用户明确要求, 禁止使用 `Map`
-- Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
 - 缩进使用 tab
 - keep indents on empty lines
-- 除非用户要求, 禁止使用 `async`/`await`
-- 相对路径是项目项目路径, 不是 agent 相对路径 !
