@@ -143,7 +143,7 @@ DTO 禁止使用内部类。原本作为内部类存在的 DTO，必须按业务
 5. 拆分后，父 DTO 通过字段引用子 DTO 类型，不再声明 static class / inner class。
 
 ## sql
-+ 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`
++ 如涉及到表或字段操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`, 包括增量和存量
 + 如果表已经存在, 请不要直接改动建表语句, 而是使用 'alter table' 命令
 + 新增的表和字段, 需要加入注释
 + 常用查询字段需要添加索引
@@ -171,6 +171,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
   - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
+- 没必要的包装方法, 自动删除, 换为使用入参
 - Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
   ```
   String profileId = request.getProfileId();
@@ -181,6 +182,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
   ```
 - 下载接口不要返回 FileSystemResource 让框架自己处理资源流
 - service 方法入参一般使用 dto 传参, 如果是复用代码, 可以直接传入变量作为参数, 就不用非要dto了
+- 字段匹配优先使用正则
 
 ## 变更边界
 
