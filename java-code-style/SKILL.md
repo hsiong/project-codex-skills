@@ -85,7 +85,7 @@ public Result<OrderDetailVO> getOrderDetail(@Validated @RequestBody OrderDetailR
 - 生成 service 方法时，把主要逻辑写完整，不要只留“TODO”或空壳实现。
 - 同一类的代码, 名称前缀应相同, 比如 `XXXCallbackService` 命名不便管理   应该命名 `CallbackXXXService`  这样都在一起
 
-## 实体与请求对象
+## 实体与请求对象与DTO
 
 - DTO、Entity、Pojo、VO 等实体类字段需要使用 `@Schema` 描述字段含义。
 - 实体类本身优先使用 `@Data`。
@@ -122,6 +122,25 @@ public class CreateOrderRequestDTO {
 	@JSONField(format = "yyyy-MM-dd HH:mm:ss")
 	@JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
 ```
+
+### DTO 拆分类与包路径规则
+DTO 禁止使用内部类。原本作为内部类存在的 DTO，必须按业务层级拆成独立 public class，并放入与父级 DTO 对应的子包中。
+
+拆分规则：
+1. 顶层 DTO 放在当前业务 DTO 包下，例如：
+   dto.dingtalkmessagedto.TextDTO
+
+2. 原本属于某个 DTO 内部结构的子 DTO，放到以父 DTO 小写名称命名的子包下，例如：
+   TextDTO 内部的 ReplyDTO 放到：
+   dto.dingtalkmessagedto.textdto.ReplyDTO
+
+3. 如果子 DTO 下面还有更深层结构，继续按父级 DTO 小写名称递归建包，例如：
+   ReplyDTO 内部的 ReplyTextDTO 放到：
+   dto.dingtalkmessagedto.textdto.replydto.ReplyTextDTO
+
+4. 包名使用小写，类名保持 PascalCase，并保留 DTO 后缀。
+
+5. 拆分后，父 DTO 通过字段引用子 DTO 类型，不再声明 static class / inner class。
 
 ## sql
 + 如涉及到表操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`
