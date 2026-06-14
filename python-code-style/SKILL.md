@@ -51,11 +51,13 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
   - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
+- 没必要的包装方法, 自动删除, 换为使用入参
 - 同一批业务只能放到 `core` 同一个文件内, API 路由只从一个 core 文件导入方法
 - Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
 - 除非用户明确要求, 禁止使用 `Map`
 - 使用框架内已有的日志工具
 - 除非用户要求, 禁止使用 `async`/`await`
+- 字段匹配优先使用正则
 
 ## 变更边界
 
