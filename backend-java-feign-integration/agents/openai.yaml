@@ -1,7 +1,7 @@
 interface:
   display_name: "Java Feign集成"
   short_description: "按现有 Feign 模式补齐 Java 接口接入"
-  default_prompt: "Use $java-feign-integration to add a Java Feign integration that reuses existing DTO, decoder, interceptor, and service patterns."
+  default_prompt: "Use $backend-java-feign-integration to add a Java Feign integration that reuses existing DTO, decoder, interceptor, and service patterns."
 
 policy:
   allow_implicit_invocation: true
