@@ -1,5 +1,5 @@
 ---
-name: java-code-style
+name: backend-java-code-style
 description: "当用户要生成、补全、修改或评审 Java 后端代码时触发。它按现有项目风格产出最小改动的 Java 代码；不用于前端、运维或与 Java 无关的任务。"
 ---
 
@@ -25,7 +25,7 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 - 注释直接说明业务目的和入参与返回关系，不写空泛表述。
 - 生成注释时，优先解释“为什么这样处理”，不是重复代码字面意思。
 - 关键代码必须加注释，重点解释业务判断、分支原因、边界处理和数据转换，不写无意义的逐行注释。
-- 涉及到功能改动或优化的, 同步修改注释
+- 修改代码的同时, 一定要同步修改注释
 
 示例：
 
@@ -184,6 +184,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 下载接口不要返回 FileSystemResource 让框架自己处理资源流
 - service 方法入参一般使用 dto 传参, 如果是复用代码, 可以直接传入变量作为参数, 就不用非要dto了
 - 字段匹配优先使用正则
+- 禁止使用 redundant  Local variable
 
 ## 变更边界
 
@@ -195,8 +196,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 
 - 禁止访问任何 `application-*.yml` 文件，但可以访问 `application.yml`
 - 注意，代码中使用的配置项要与 `application.yml` 配置一致, 如 `${xxx}`, `@ConfigurationProperties` 等
-- 如需新增配置项，默认把配置项加入 `application.yml`, 并引用 `${config.xxx.xxx}`
-- 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
+- 如需新增配置项，默认把配置项加入 `application.yml`, 并引用 `${config.xxx.xxx}`, 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
 - 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
 - 使用 `xxxProperties` 命名
 
@@ -211,3 +211,18 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 除非用户要求, 无需你自动测试/验证功能，只用编译检查即可, 
 - 根据用户要求, 基于项目代码, 直接修改代码或给出直接可用的代码修改意见, 禁止给出`伪代码``大概是这样的代码`等等
 - 如需使用常量, 放到 `constant` 文件夹下合适的类中
+
+# 强制
+- 禁止使用形如以下更新代码  这会导致数据全部丢失 ! 
+ ```
+						xxx updateEntity = new xxx();
+						updateEntity.setId(recordId);
+						...
+						xxxMapper.updateById(updateEntity);
+ ```
+- 完成后需要你再次审查, 本次引入的代码是否有风险, 是否需要提前备份 等等
+```
+格式如下:
+# 风险审查
+...
+```
