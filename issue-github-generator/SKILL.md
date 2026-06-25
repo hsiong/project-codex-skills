@@ -50,6 +50,7 @@ description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明�
    - 已有明显相似 issue 时，默认不重复起草，直接记录已有 issue 链接、相似点和差异点。
 
 5. 生成 issue 草稿：
+   - 生成草稿前，先清空 `file/issue` 目录下的所有文件。
    - 对每个非重复候选生成标题和 Markdown 正文。
    - 信息不足但可从 diff 推断时合理补全；无法推断时使用简短 `TODO` 占位。
    - 默认将草稿写入当前仓库的 `file/issue/` 目录，每个 issue 一个 `.md` 文件。
