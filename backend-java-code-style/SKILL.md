@@ -123,6 +123,7 @@ public class CreateOrderRequestDTO {
 	@JSONField(format = "yyyy-MM-dd HH:mm:ss")
 	@JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
 ```
++ 除非用户要求, 实体与请求对象与DTO 字段禁止使用默认初始值
 
 ### DTO 拆分类与包路径规则
 DTO 禁止使用内部类。原本作为内部类存在的 DTO，必须按业务层级拆成独立 public class，并放入与父级 DTO 对应的子包中。
@@ -220,9 +221,4 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 						...
 						xxxMapper.updateById(updateEntity);
  ```
-- 完成后需要你再次审查, 本次引入的代码是否有风险, 是否需要提前备份 等等
-```
-格式如下:
-# 风险审查
-...
-```
+- 参考行业内类似场景和功能的优秀方案和标准
