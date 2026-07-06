@@ -218,7 +218,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 缩进使用 tab
 - keep indents on empty lines
 - 默认已存在的文件/代码/注释, 禁止你删除
-- 新增的文件自动 `git add`
+- 在满足 `.gitignore` 的前提下，可以使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
 - 默认禁止使用 `Map`
 - 根据用户要求, 基于项目代码, 直接修改代码或给出直接可用的代码修改意见, 禁止给出`伪代码``大概是这样的代码`等等
 - 如需使用常量, 放到 `constant` 文件夹下合适的类中
