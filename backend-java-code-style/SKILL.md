@@ -10,7 +10,7 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 ## 测试代码约定
 
 - 测试类如需调用 api 接口, 请基于 `ynfy-tool-httpconnect` 实现
-- 输出 excel, 除非用户要求, 请基于 `EasyExcel`
+- 输出 excel, 默认请基于 `EasyExcel`
   - 如果是 excel 报错相关, 因为保密原因, 你访问不了我的本地xlsx, 请你检查代码即可
 - 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
 - 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
@@ -62,7 +62,7 @@ public List<OrderVO> queryValidOrders(Long userId, boolean includeClosed) {
 ## Controller 约束
 
 - Controller 方法使用 `@Operation` 描述接口用途。
-- 优先使用 Post 请求，除非用户明确要求或场景天然更适合 Get。
+- 默认优先使用 Post 请求，除非场景天然更适合 Get。
 - 查询接口方法名以 `getXXX` 形式命名。
 - Controller 返回统一使用 `Result` 类。
 - Controller 内部只做收参、基础校验、调用 service、封装 `Result`，不要下沉业务实现。
@@ -123,7 +123,7 @@ public class CreateOrderRequestDTO {
 	@JSONField(format = "yyyy-MM-dd HH:mm:ss")
 	@JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
 ```
-+ 除非用户要求, 实体与请求对象与DTO 字段禁止使用默认初始值
++ 默认实体与请求对象与DTO 字段禁止使用默认初始值
 
 ### DTO 拆分类与包路径规则
 DTO 禁止使用内部类。原本作为内部类存在的 DTO，必须按业务层级拆成独立 public class，并放入与父级 DTO 对应的子包中。
@@ -160,7 +160,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 
 ## 缓存
 - 提到缓存, 请使用 `@Cacheable`
-- 除非用户特意声明, 否则不存储 `null` 值, 使用 `unless = "#result == null"`
+- 默认不存储 `null` 值, 使用 `unless = "#result == null"`
 
 ## 方法
 
@@ -171,7 +171,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
   - 如果两个方法(包括CRUD)的唯一区别只是传入不同的 `true/false`、常量、枚举或字符串，优先合并为一个真实方法，由调用方直接传参。
   - 禁止新增只有一层转发、没有独立业务语义的包装方法。
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
-  - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
+  - 默认禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
 - 没必要的包装方法, 自动删除, 换为使用入参
 - Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
@@ -197,7 +197,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 
 - 禁止修改与用户当前需求无关的代码、配置占位符、注释、格式、命名、依赖、接口 URL、调度表达式等内容。即使发现现有代码看起来不够优雅、不够一致、可能有更好的写法，也只能在回复中提示，不得顺手修改。
 - 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
-- 除非用户明确要求，直接修改相关代码即可
+- 默认直接修改相关代码即可
 
 ## 配置项约束
 
@@ -208,7 +208,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 使用 `xxxProperties` 命名
 
 ## 测试
-- 除非用户要求, 无需你自动测试/验证功能，只用编译检查即可,
+- 默认无需你自动测试/验证功能，只用编译检查即可,
 - 如果用户明确要求测试, 你不应该通过服务直接一开始就进行整体端测   而是一个个,每一个我需要你测试的地方, 自己完成单元测试用例, 逐个测试通过   需要联网的, 甚至需要你完成交叉测试验证用例  这种
 
 
@@ -217,9 +217,9 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 使用框架内已有的日志工具，在关键节点 加入 日志打印
 - 缩进使用 tab
 - keep indents on empty lines
-- 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
+- 默认已存在的文件/代码/注释, 禁止你删除
 - 新增的文件自动 `git add`
-- 除非用户明确要求, 禁止使用 `Map`
+- 默认禁止使用 `Map`
 - 根据用户要求, 基于项目代码, 直接修改代码或给出直接可用的代码修改意见, 禁止给出`伪代码``大概是这样的代码`等等
 - 如需使用常量, 放到 `constant` 文件夹下合适的类中
 
