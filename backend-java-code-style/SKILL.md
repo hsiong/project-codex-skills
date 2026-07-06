@@ -186,6 +186,7 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - service 方法入参一般使用 dto 传参, 如果是复用代码, 可以直接传入变量作为参数, 就不用非要dto了
 - 字段匹配优先使用正则
 - 禁止使用 redundant  Local variable
+- 禁止在代码里使用禁止使用自定义sql
 
 ## 多线程/异步
 - 默认使用 `@Async` 实现多线程/异步，不要使用 `Executors`
@@ -231,4 +232,3 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 						xxxMapper.updateById(updateEntity);
  ```
 - 参考行业内类似场景和功能的优秀方案和标准
-- 严格按照本规范完成 java 代码, 禁止自己添加其他规则
