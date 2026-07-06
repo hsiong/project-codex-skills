@@ -44,7 +44,7 @@ docs: 完善自动建群功能说明
 
 - 只做提交相关操作，不改用户代码，不顺手修问题，不整理格式。
 - 只允许查看 Git 已知路径：已跟踪改动、已暂存新增、已暂存删除。真正未跟踪文件一律不访问。
-- 禁止使用 `git add .`、`git add -A`、`git commit -a` 这类会扩大范围的命令。
+- 在满足 `.gitignore` 的前提下，可以使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
 - 禁止读取或提交以下内容：
   - `*/application.yml`
   - `*/application-*.yml`
