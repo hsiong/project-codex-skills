@@ -49,21 +49,21 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
   - 如果两个方法(包括CRUD)的唯一区别只是传入不同的 `true/false`、常量、枚举或字符串，优先合并为一个真实方法，由调用方直接传参。
   - 禁止新增只有一层转发、没有独立业务语义的包装方法。
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
-  - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非用户明确要求兼容旧调用。
+  - 默认禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载，除非为了兼容旧调用。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
 - 没必要的包装方法, 自动删除, 换为使用入参
 - 同一批业务只能放到 `core` 同一个文件内, API 路由只从一个 core 文件导入方法
 - Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
-- 除非用户明确要求, 禁止使用 `Map`
+- 默认禁止使用 `Map`
 - 使用框架内已有的日志工具
-- 除非用户要求, 禁止使用 `async`/`await`
+- 默认禁止使用 `async`/`await`
 - 字段匹配优先使用正则
 
 ## 变更边界
 
 - 禁止修改与用户当前需求无关的代码、配置占位符、注释、格式、命名、依赖、接口 URL、调度表达式等内容。即使发现现有代码看起来不够优雅、不够一致、可能有更好的写法，也只能在回复中提示，不得顺手修改。
 - 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
-- 除非用户明确要求，直接修改相关代码即可
+- 默认直接修改相关代码即可
 - 能直接返回就直接返回，避免无意义的中间变量和多层嵌套。
 - 如果文件移动后, 之前的目录为空, 则删除之前的目录
 
@@ -81,26 +81,26 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 - 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
 - 不要使用 `add_argument` 这类命令行参数解析方式包装测试入参，直接使用普通变量。
 - 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
-- 除了 dify 等高星项目, 除非用户明确要求, 不要mock, 而是实际测试
+- 除了 dify 等高星项目, 默认不要mock, 而是实际测试
   - 不使用 `Mock客户端`, 而是调用实际接口/执行实际业务
   - 不使用 `Mock数据`, 而是按接口业务, 传入实际文件/数据
 - 测试的相关类也要符合 `## 实体与请求对象` 的约定
-- 除非用户明确要求，禁止你自动测试
-- 除非用户明确要求，不需要你自动验证, 只需要你自动编译检查有无语法问题
+- 默认禁止你自动测试
+- 默认不需要你自动验证, 只需要你自动编译检查有无语法问题
 - 如果用户明确要求测试, 你不应该通过服务直接一开始就进行整体端测   而是一个个,每一个我需要你测试的地方, 自己完成单元测试用例, 逐个测试通过   需要联网的, 甚至需要你完成交叉测试验证用例  这种
 
 
 
 ## 依赖
 - 依赖需要加入版本
-- 除非用户明确要求，依赖文件中如果缺乏 `-i https://pypi.tuna.tsinghua.edu.cn/simple`, 自动补充
+- 默认依赖文件中如果缺乏 `-i https://pypi.tuna.tsinghua.edu.cn/simple`, 自动补充
 - 禁止自动修改依赖文件名称
 
 ## 配置项约束
 
 - 禁止访问任何 `config/.env.*` 文件
 - 新增的配置项，放到 `config/settings.py` 中, 比如 `POSTGRES_URL = env.get("POSTGRES_URL")`, 
-  + 除非用户要求, 不需要默认值
+  + 默认不需要默认值
 - 新增的具体配置, 直接在 terminal 日志中打印新增 key 和建议值, 比如 `POSTGRES_URL=xxx`
 - 如需使用常量, 放到 `config` 文件夹下合适的类中
 - 代码里的相对路径是项目项目路径, 不是 agent 相对路径；
@@ -126,7 +126,7 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 
 - 先理解现有文件风格，再补全或修改代码。
 - 生成的代码应可直接落地，避免只写空壳、TODO 或伪代码。
-- 除非用户要求, 已存在的文件/代码/注释, 禁止你删除
+- 默认已存在的文件/代码/注释, 禁止你删除
 - 缩进使用 tab
 - keep indents on empty lines    
 - 完成后需要你再次审查, 本次引入的代码是否有风险, 是否需要提前备份 等等
