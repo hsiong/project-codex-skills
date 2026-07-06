@@ -145,7 +145,7 @@ DTO 禁止使用内部类。原本作为内部类存在的 DTO，必须按业务
 5. 拆分后，父 DTO 通过字段引用子 DTO 类型，不再声明 static class / inner class。
 
 ## sql
-+ 如涉及到表或字段操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd-hhmmss}.sql`, 包括增量和存量
++ 如涉及到表或字段操作, 请将 sql 保存到 file/sql 目录下, sql 文件命名为 `{yyyy-mm-dd}.sql`, 包括增量和存量
 + 如果表已经存在, 请不要直接改动建表语句, 而是使用 'alter table' 命令
 + 新增的表和字段, 需要加入注释
 + 常用查询字段需要添加索引
@@ -187,6 +187,11 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 字段匹配优先使用正则
 - 禁止使用 redundant  Local variable
 
+## 多线程/异步
+- 默认使用 `@Async` 实现多线程/异步，不要使用 `Executors`
+- 默认每个多线程/异步方法使用单独的配置, 不用共用线程池
+- 默认每个多线程/异步方法使用独立的类
+
 ## 变更边界
 
 - 禁止修改与用户当前需求无关的代码、配置占位符、注释、格式、命名、依赖、接口 URL、调度表达式等内容。即使发现现有代码看起来不够优雅、不够一致、可能有更好的写法，也只能在回复中提示，不得顺手修改。
@@ -226,3 +231,4 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 						xxxMapper.updateById(updateEntity);
  ```
 - 参考行业内类似场景和功能的优秀方案和标准
+- 严格按照本规范完成 java 代码, 禁止自己添加其他规则
