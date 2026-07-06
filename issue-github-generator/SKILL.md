@@ -55,7 +55,7 @@ description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明�
    - 信息不足但可从 diff 推断时合理补全；无法推断时使用简短 `TODO` 占位。
    - 默认将草稿写入当前仓库的 `file/issue/` 目录，每个 issue 一个 `.md` 文件。
    - 文件命名为 `file/issue/<type>-<short-kebab-title>.md`；如同名冲突，追加 `-2`、`-3`。
-   - 这些草稿文件不属于 commit 范围，除非用户另外要求。
+   - 这些草稿文件默认不属于 commit 范围。
 
 6. 提交 issue：
    - 只有用户明确要求提交 issue 时，才直接调用本 skill 的 `scripts/submit_issues.sh`。
@@ -116,7 +116,7 @@ Bug 类结构：
   - `config/.env.*`
   - `.gitignore` 中提到的内容
 - 读取 `.gitignore`。禁止访问和提交 `.gitignore` 内提到的内容。
-- 如果变更的代码中存在 `todo`，除非用户特意说明，必须提醒用户（哪个文件：哪行代码）并终止后续 issue 提交。
+- 如果变更的代码中存在 `todo`，默认必须提醒用户（哪个文件：哪行代码）并终止后续 issue 提交。
 - 没有加入到 git 管理中的文件，禁止访问和自行添加。
 - 新增的 issue 文件, 无需 `git add`。
 - 如果没法直接提交 GitHub issue, 生成英文 issue 草稿到 file/issue
