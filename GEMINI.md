@@ -18,6 +18,6 @@
    - dumping all functionality 
    - expected input/output 
    - success criteria
-9. 除非用户特意要求，对应 skill 里面的所有内容， skill.md/代码以及其他所有的内容，都一次性同步修改
+9. 默认对应 skill 里面的所有内容， skill.md/代码以及其他所有的内容，都一次性同步修改
 10. 以上文件生成后，自动执行 git add，纳入git管理
 11. `SKILL.md` 不能包含重复的内容或重复的指令, 已经提过的, 后文就不要再重复提
