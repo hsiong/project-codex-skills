@@ -34,7 +34,12 @@ description: "当用户输入包含 issue 标题和编号的内容时触发，�
      - **提交**：`git commit -m "提交信息" <文件列表>`。
      - **推送**：`git push origin HEAD:fix/issue_code`（将当前分支的最顶端提交推送到远程目标分支）。
      - **回滚**：`git reset --soft HEAD~1`（本地撤销该提交，保留改动。这确保了本地不产生额外的 commit 记录，且不改变分支结构）。
-6. **汇总**：列出已成功推送到远程的 issue 分支及其对应的文件清单。
+6. **汇总**：列出已成功推送到远程的 issue 分支及其对应的文件清单。推送成功后，自动根据当前仓库的 GitHub 地址和推送的目标分支拼装 Pull Request 创建链接并提示用户：
+```
+您可以点击下方链接，在 GitHub 上针对该分支创建 Pull Request：
+   🔗 创建 Pull Request  https://<repo_url>/pull/new/<branch_name>
+   description: keyword: #issue_code
+```
 
 ## 强约束
 
