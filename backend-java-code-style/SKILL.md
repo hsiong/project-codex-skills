@@ -5,7 +5,7 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 
 # Java Code Style
 
-按下面规则生成 Java 代码，并优先兼容用户当前项目已有风格；如果项目现有写法与本 skill 不冲突，保持一致。
+按下面规则生成 Java 代码
 
 ## 测试代码约定
 
@@ -260,3 +260,5 @@ public enum xxxEnum {
 						xxxMapper.updateById(updateEntity);
  ```
 - 参考行业内类似场景和功能的优秀方案和标准
+按下面规则生成 Java 代码，
+- 优先兼容用户当前项目已有代码风格；如果项目现有写法与本 skill 不冲突，保持一致。
