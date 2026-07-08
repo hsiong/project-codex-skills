@@ -158,6 +158,36 @@ update_by VARCHAR2(32),
 update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 ```
 
+## enum
+- 使用到枚举的, 实体直接保存枚举, 枚举参考以下实现
+```
+@Getter
+@AllArgsConstructor
+public enum xxxEnum {
+	
+	xxx("code", "name");
+
+	@EnumValue
+	@JsonValue
+	private final String code;
+
+	private final String name;
+
+	@JsonCreator
+	public static xxxEnum of(Object code) {
+		if (ObjectUtil.isEmpty(code)) {
+			return null;
+		}
+		for (xxxEnum item : values()) {
+			if (Objects.equals(item.code, String.valueOf(code))) {
+				return item;
+			}
+		}
+		return null;
+	}
+}
+```
+
 ## 缓存
 - 提到缓存, 请使用 `@Cacheable`
 - 默认不存储 `null` 值, 使用 `unless = "#result == null"`
@@ -166,15 +196,14 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 
 - 已有方法需要新增业务参数时，优先在当前真实调用点直接补齐参数，保持调用链最短。
 - 多个代码块有复用代码的，抽离为工具类或私有方法，避免重复代码
-- 重点: 没有复用的代码, 禁止单独抽成方法, 除非这个代码块有明显的业务含义并超过了 50 行
+- 没有复用的代码, 禁止单独抽成方法, 除非这个代码块有明显的业务含义同时行数超过了 50 行
 - 尽量避免冗余设计, 优先选择直接实现，避免无实际价值的抽象和中间层
   - 如果两个方法(包括CRUD)的唯一区别只是传入不同的 `true/false`、常量、枚举或字符串，优先合并为一个真实方法，由调用方直接传参。
   - 禁止新增只有一层转发、没有独立业务语义的包装方法。
-  - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 
+  - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 没必要的包装方法, 自动删除, 换为使用入参
   - 默认禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
-- 没必要的包装方法, 自动删除, 换为使用入参
-- Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
+- Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier. 禁止使用 redundant  Local variable
   ```
   String profileId = request.getProfileId();
   CustomerDingTalkRobotDTO customerInfo =
@@ -185,7 +214,6 @@ update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 - 下载接口不要返回 FileSystemResource 让框架自己处理资源流
 - service 方法入参一般使用 dto 传参, 如果是复用代码, 可以直接传入变量作为参数, 就不用非要dto了
 - 字段匹配优先使用正则
-- 禁止使用 redundant  Local variable
 - 禁止在代码里使用禁止使用自定义sql
 
 ## 多线程/异步
