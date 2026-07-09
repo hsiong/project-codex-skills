@@ -5,7 +5,7 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 
 # Java Code Style
 
-按下面规则生成 Java 代码
+必须按下面规则生成 Java 代码, 不能遗漏
 
 ## 测试代码约定
 
@@ -266,4 +266,5 @@ public enum xxxEnum {
 						...
 						xxxMapper.updateById(updateEntity);
  ```
-- 代码排版风格必须与当前项目一致, 缩进方式等；并不只看能否编译
+- 排版风格必须与当前项目整体一致, 必须逐行对照项目现有排版
+- 输出默认到 `file/output` 目录下
