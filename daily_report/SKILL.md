@@ -19,11 +19,10 @@ description: "当用户要根据 Codex 对话历史和相关 Git 仓库改动生
 
 ## 处理流程
 
-
 + 先确定日报日期：默认使用本机当前日期；如果用户指定日期，使用用户指定日期。
-+ 优先读取当天对话历史：默认查找 `~/.codex/sessions/$(date +%Y/%m/%d)/*.jsonl` 以及 `~/.gemini/antigravity-cli/*.jsonl`。
++ 优先读取当天对话历史：查找 `~/.codex/sessions/$(date +%Y/%m/%d)/*.jsonl` 以及 `~/.gemini/antigravity-cli/*.jsonl`。
 + 指定日期时按对应 `YYYY/MM/DD` 目录查找。
-+ 从对话历史中提取用户当天输入的问题、需求、报错、改动意图，以及 assistant 最终完成的任务摘要；默认日报不要把完整对话逐条复述。
++ 从对话历史中提取用户当天输入的问题、需求、报错、改动意图，以及 assistant 最终完成的任务摘要；日报不要把完整对话逐条复述。
 + 从每个 session 的 `session_meta.payload.cwd` 提取会话启动目录，并对每个 cwd 执行 `git -C "$cwd" rev-parse --show-toplevel` 反推 Git 仓库根目录。
 + 如果 `session_meta.payload.cwd` 不存在或不能反推仓库，可辅助使用 `turn_context.payload.cwd`、`event_msg.payload.cwd`；仍无法确认仓库时，该 session 只作为问题/过程来源。
 + 对反推出的 Git 仓库去重后，逐个读取 Git 改动确认项目真实变化：
@@ -61,7 +60,7 @@ description: "当用户要根据 Codex 对话历史和相关 Git 仓库改动生
 - 不要把“DTO、配置拆分、拦截器、解码器、常量”单独写成一条日报，除非它直接支撑了某个明确问题的解决。
 - 同类提交必须合并。
 - 如果无法从对话历史和 Git 改动中判断真实业务背景，允许写“归纳”。
-- 默认日报正文应合并同类事项。
+- 日报正文应合并同类事项。
 - 最终结果必须像人写的工作日报，不能像代码目录说明。
 
 ## 输出格式
