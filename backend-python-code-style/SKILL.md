@@ -5,7 +5,7 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 
 # Python Code Style
 
-按下面规则生成 Python 代码，并优先兼容用户当前项目已有风格；如果项目已有写法与本 skill 不冲突，保持一致。
+必须按下面规则生成 Python 代码, 不能遗漏
 
 + 框架使用 `fastapi`
 
@@ -160,4 +160,4 @@ etf_assistant/
 - 与本次修改无关的文件/代码/注释, 禁止删除
 - 缩进使用 tab
 - keep indents on empty lines
-- 代码排版风格必须与当前项目一致, 缩进方式等；并不只看能否编译
+- 排版风格必须与当前项目整体一致, 必须逐行对照项目现有排版
