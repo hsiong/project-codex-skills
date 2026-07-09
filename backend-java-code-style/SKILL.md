@@ -10,8 +10,7 @@ description: "当用户要生成、补全、修改或评审 Java 后端代码时
 ## 测试代码约定
 
 - 测试类如需调用 api 接口, 请基于 `ynfy-tool-httpconnect` 实现
-- 输出 excel, 默认请基于 `EasyExcel`
-  - 如果是 excel 报错相关, 因为保密原因, 你访问不了我的本地xlsx, 请你检查代码即可
+- 输出 excel, 请基于 `EasyExcel`
 - 如果用户要求生成测试方法，实现逻辑必须非常简单，方便直接运行和理解。
 - 测试优先覆盖主流程、关键分支和明显边界，不写过度复杂的构造逻辑。
 - 测试的相关类也要符合 `## 实体与请求对象` 的约定
@@ -123,7 +122,7 @@ public class CreateOrderRequestDTO {
 	@JSONField(format = "yyyy-MM-dd HH:mm:ss")
 	@JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
 ```
-+ 默认实体与请求对象与DTO 字段禁止使用默认初始值
++ 实体与请求对象与DTO 字段禁止使用初始值
 
 ### DTO 拆分类与包路径规则
 DTO 禁止使用内部类。原本作为内部类存在的 DTO，必须按业务层级拆成独立 public class，并放入与父级 DTO 对应的子包中。
@@ -201,7 +200,7 @@ public enum xxxEnum {
   - 如果两个方法(包括CRUD)的唯一区别只是传入不同的 `true/false`、常量、枚举或字符串，优先合并为一个真实方法，由调用方直接传参。
   - 禁止新增只有一层转发、没有独立业务语义的包装方法。
   - 禁止为了透传新增参数而连续新增一堆没有任何用途的重载方法。 没必要的包装方法, 自动删除, 换为使用入参
-  - 默认禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载。
+  - 禁止出现“旧方法只调用新方法并补 null/false/default 参数”的包装式重载。
   - 纯CRUD且没有超过两次的调用, 直接使用 mapper
 - Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier. 禁止使用 redundant  Local variable
   ```
@@ -217,21 +216,32 @@ public enum xxxEnum {
 - 禁止在代码里使用禁止使用自定义sql
 
 ## 多线程/异步
-- 默认使用 `@Async` 实现多线程/异步，不要使用 `Executors`
-- 默认每个多线程/异步方法使用单独的名称, 不用共用线程池
-- 默认每个多线程/异步方法使用独立的类
+- 使用 `@Async` 实现多线程/异步，不要使用 `Executors`
+- 每个多线程/异步方法使用单独的名称, 不用共用线程池
+- 每个多线程/异步方法使用独立的类
 
 ## 变更边界
 
 - 禁止修改与用户当前需求无关的代码、配置占位符、注释、格式、命名、依赖、接口 URL、调度表达式等内容。即使发现现有代码看起来不够优雅、不够一致、可能有更好的写法，也只能在回复中提示，不得顺手修改。
 - 新增代码时优先做最小必要改动，不顺手扩展范围，不主动重构整条链路
-- 默认直接修改相关代码即可
+- 直接修改相关代码即可
 
 ## 配置项约束
 
+- 只做提交相关操作，不改用户代码，不顺手修问题，不整理格式。
+- 允许查看 Git 已知路径：已跟踪改动、已暂存新增、已暂存删除。
+- 禁止读取或提交以下内容：
+  - `*/.mvn/*`
+  - `*/.idea/*`
+  - `config/.env.*`
+  - `.gitignore` 中提到的内容
+- 读取 `.gitignore`。禁止访问和提交 .gitignore 内提到的内容
+- 在满足 `.gitignore` 的前提下，必须使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
+- 如果变更的代码中存在 `todo`，必须提醒用户(哪个文件：哪行代码)，并终止后续提交
+
 - 禁止访问任何 `application-*.yml` 文件，但可以访问 `application.yml`
 - 注意，代码中使用的配置项要与 `application.yml` 配置一致, 如 `${xxx}`, `@ConfigurationProperties` 等
-- 如需新增配置项，默认把配置项加入 `application.yml`, 并引用 `${config.xxx.xxx}`, 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
+- 如需新增配置项，把配置项加入 `application.yml`, 并引用 `${config.xxx.xxx}`, 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
 - 打印时优先给出可直接复制的配置片段，保持 key 层级完整。
 - 使用 `xxxProperties` 命名
 
@@ -245,13 +255,10 @@ public enum xxxEnum {
 - 使用框架内已有的日志工具，在关键节点 加入 日志打印
 - 缩进使用 tab
 - keep indents on empty lines
-- 默认已存在的文件/代码/注释, 禁止你删除
-- 在满足 `.gitignore` 的前提下，可以使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
-- 默认禁止使用 `Map`
+- 与本次修改无关的文件/代码/注释, 禁止删除
+- 禁止使用 `Map`
 - 根据用户要求, 基于项目代码, 直接修改代码或给出直接可用的代码修改意见, 禁止给出`伪代码``大概是这样的代码`等等
 - 如需使用常量, 放到 `constant` 文件夹下合适的类中
-
-# 强制
 - 禁止使用形如以下更新代码  这会导致数据全部丢失 ! 
  ```
 						xxx updateEntity = new xxx();
@@ -259,6 +266,4 @@ public enum xxxEnum {
 						...
 						xxxMapper.updateById(updateEntity);
  ```
-- 参考行业内类似场景和功能的优秀方案和标准
-按下面规则生成 Java 代码，
-- 优先兼容用户当前项目已有代码风格；如果项目现有写法与本 skill 不冲突，保持一致。
+- 代码排版风格必须与当前项目一致, 缩进方式等；并不只看能否编译
