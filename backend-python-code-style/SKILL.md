@@ -161,3 +161,4 @@ etf_assistant/
 - 缩进使用 tab
 - keep indents on empty lines
 - 排版风格必须与当前项目整体一致, 必须逐行对照项目现有排版
+- 输出默认到 `file/output` 目录下, 并加上时间戳
