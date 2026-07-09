@@ -14,7 +14,7 @@ description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明�
 
 ## 分组规则
 
-- 除了纯编程代码以外（`.java`/`.py` 等），不同文件（路径不同或名称不同）默认分成不同 issue。
+- 除了纯编程代码以外（`.java`/`.py` 等），不同文件（路径不同或名称不同）分成不同 issue。
 - 多个 issue 并存时，按改动量从大到小排序后依次处理。
 - 改动量以该功能分组的增删行总数估算，优先看 `git diff --numstat` 和 `git diff --stat`。
 
@@ -47,15 +47,15 @@ description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明�
    - 先查重，后起草。只要仓库可访问，就必须先联网检查现有 issues。
    - 优先使用 `gh issue list`、GitHub API 或网页搜索目标仓库 issue。
    - 关键词来自候选的模块名、接口名、异常信息、行为变化和标题核心词。
-   - 已有明显相似 issue 时，默认不重复起草，直接记录已有 issue 链接、相似点和差异点。
+   - 已有明显相似 issue 时，不重复起草，直接记录已有 issue 链接、相似点和差异点。
 
 5. 生成 issue 草稿：
    - 生成草稿前，先清空 `file/issue` 目录下的所有文件。
    - 对每个非重复候选生成标题和 Markdown 正文。
    - 信息不足但可从 diff 推断时合理补全；无法推断时使用简短 `TODO` 占位。
-   - 默认将草稿写入当前仓库的 `file/issue/` 目录，每个 issue 一个 `.md` 文件。
+   - 将草稿写入当前仓库的 `file/issue/` 目录，每个 issue 一个 `.md` 文件。
    - 文件命名为 `file/issue/<type>-<short-kebab-title>.md`；如同名冲突，追加 `-2`、`-3`。
-   - 这些草稿文件默认不属于 commit 范围。
+   - 这些草稿文件不属于 commit 范围。
 
 6. 提交 issue：
    - 只有用户明确要求提交 issue 时，才直接调用本 skill 的 `scripts/submit_issues.sh`。
@@ -65,7 +65,7 @@ description: "当用户要按当前 Git 改动生成 GitHub issue 草稿或明�
 
 ## 输出要求
 
-- 默认只生成草稿文件，不提交远程 issue。
+- 只生成草稿文件，不提交远程 issue。
 - 生成后按处理顺序列出草稿文件路径、issue 标题和对应改动范围。
 - 对跳过的重复候选，列出现有 issue 链接、相似点和差异点。
 - 如果用户明确要求提交，提交后列出 issue 标题、GitHub 链接和对应改动范围。
