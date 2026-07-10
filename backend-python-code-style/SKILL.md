@@ -23,10 +23,9 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 + ORM Entity crud 链路存到 `model` 目录下, `model/repo, entity, service/xxx`
 + Entity model 需要兼容 `SQLAlchemy` 模型定义
 + `SQLAlchemy` 模型定义完全兼容 `pydantic`模型吗? 如果不兼容,  完成 `pydantic` 和 `SQLAlchemy` 模型互转方法
-  + 如果读取的 `POSTGRES_URL` 为空, 则不 import SQLAlchemy 相关类, 避免报错
-  + 因为很多项目无需 SQLAlchemy
+  + 如果读取的 `POSTGRES_URL` 为空, 则不 import SQLAlchemy 相关类, 避免报错 因为很多项目无需 SQLAlchemy
 + `repo` 只负责实现最基础的 `add update delete list`, `service` 负责业务逻辑
-
+- 禁止使用外键
 
 ## 方法
 
