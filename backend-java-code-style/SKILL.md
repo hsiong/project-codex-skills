@@ -156,6 +156,7 @@ create_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP NOT NULL,
 update_by VARCHAR2(32),
 update_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 ```
+- 禁止使用外键
 
 ## enum
 - 使用到枚举的, 实体直接保存枚举, 枚举参考以下实现
