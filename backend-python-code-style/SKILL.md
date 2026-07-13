@@ -26,6 +26,8 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
   + 如果读取的 `POSTGRES_URL` 为空, 则不 import SQLAlchemy 相关类, 避免报错 因为很多项目无需 SQLAlchemy
 + `repo` 只负责实现最基础的 `add update delete list`, `service` 负责业务逻辑
 - 禁止使用外键
+- 无需表结构检查, 表结构检查写在 create_app 中
+- crud 需要使用 postgres_session, 禁止使用 engine
 
 ## 方法
 
@@ -148,7 +150,7 @@ etf_assistant/
   - `config/.env.*`
   - `.gitignore` 中提到的内容
 - 读取 `.gitignore`。禁止访问和提交 .gitignore 内提到的内容
-- 在满足 `.gitignore` 的前提下，必须使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
+- `.gitignore` 不存在, 自行生成
 - 如果变更的代码中存在 `todo`，必须提醒用户(哪个文件：哪行代码)，并终止后续提交
 
 
@@ -161,3 +163,4 @@ etf_assistant/
 - keep indents on empty lines
 - 排版风格必须与当前项目整体一致, 必须逐行对照项目现有排版
 - 输出默认到 `file/output` 目录下, 并加上时间戳
+- 在不违反 `.gitignore` 的前提下，必须使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
