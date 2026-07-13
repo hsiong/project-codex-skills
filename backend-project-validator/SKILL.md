@@ -1,16 +1,20 @@
 ---
 name: backend-project-validator
-description: "Run a backend project and validate it against design documents, then fix confirmed implementation, data, rate-limit, or algorithm issues. Use for requests such as 'check the project against its design', 'run the backend and fix what is fake', or 'audit the cross-validation algorithm'. Do not use for code-style-only reviews, frontend work, or reviews that must not modify files."
+description: "Run a backend project and validate it against design documents, then fix confirmed implementation, data, rate-limit, or algorithm issues. Use for requests such as 'check project', 'audit project'. Do not use for code-style-only reviews, frontend work, or reviews that must not modify files."
 ---
 
 # Backend Project Validator
 
 ## Inputs
 
-Require the design-document directory. Require the project path only when the user does not want the default `code`.
+```
+check project:
++ design: <design-directory>
++ project: <project-path>
+```
 
-- Design directory: user-provided; expand matching Markdown files such as `file/prompt/analyze/*.md`.
-- Project path: default to `code`.
+- Design directory: user-provided.If no design directory is provided, ask user.
+- Project path: default to `code`. If `code` does not exist, ask user.
 - Runtime environment: default to `<project-path>/.venv`.
 
 ## Workflow
