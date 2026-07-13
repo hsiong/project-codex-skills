@@ -1,11 +1,11 @@
 ---
-name: front-preact-code-style
-description: "当用户要生成、补全、修改或评审 Preact 前端代码、组件、hooks、signals、样式或交互逻辑时触发。它按现有项目风格产出最小改动的 Preact 代码；不用于 React/Next/Vue、后端、运维或不涉及 Preact 的普通前端任务。常见触发语：Preact 组件、改 Preact 页面、补 hook、修 Preact 交互、review Preact 代码。"
+name: front-React-code-style
+description: "当用户要生成、补全、修改或评审 React 前端代码、组件、hooks、signals、样式或交互逻辑时触发。它按现有项目风格产出最小改动的 React 代码；不用于 React/Next/Vue、后端、运维或不涉及 React 的普通前端任务。常见触发语：React 组件、改 React 页面、补 hook、修 React 交互、review React 代码。"
 ---
 
-# Preact Code Style
+# React Code Style
 
-按下面规则生成 Preact 代码，并优先兼容用户当前项目已有风格；如果项目现有写法与本 skill 不冲突，保持一致。
+按下面规则生成 React 代码，并优先兼容用户当前项目已有风格；如果项目现有写法与本 skill 不冲突，保持一致。
 
 ## 项目风格优先
 
@@ -17,11 +17,12 @@ description: "当用户要生成、补全、修改或评审 Preact 前端代码�
 ## 组件与 JSX
 
 - 优先使用函数组件，组件名使用 PascalCase，普通函数和变量使用 camelCase。
-- hooks 从 `preact/hooks` 引入；只有项目已经使用 signals 时，才从 `@preact/signals` 或既有封装中继续沿用。
-- 不使用 React 专属 API；需要兼容第三方 React 组件时，先确认项目已有 `preact/compat` 配置。
+- hooks 从 `React/hooks` 引入；只有项目已经使用 signals 时，才从 `@React/signals` 或既有封装中继续沿用。
+- 不使用 React 专属 API；需要兼容第三方 React 组件时，先确认项目已有 `React/compat` 配置。
 - props、事件和状态命名要表达业务含义，不使用空泛缩写。
 - 组件内部逻辑保持直接清晰；没有复用价值的代码不要抽成单独 hook 或工具函数。
 - 多处重复且业务含义稳定的逻辑可以抽成同文件私有函数、hook 或项目已有工具模块。
+- 每个页面的路由应该是不一样的  比如登陆页对应login
 
 ## 状态与副作用
 
@@ -38,6 +39,7 @@ description: "当用户要生成、补全、修改或评审 Preact 前端代码�
 - 保持移动端和桌面端都可用；固定格式元素使用稳定尺寸约束，避免 hover、图标、文案变化造成布局跳动。
 - 文案放在已有国际化或常量体系中；项目没有对应体系时，直接写最小必要文案。
 - 无用户要求时不做装饰性重设计，不新增与功能无关的动画、渐变或大面积配色变化。
+- 单击选定输入框, 并且要有输入ui提示
 
 ## 类型与数据
 
