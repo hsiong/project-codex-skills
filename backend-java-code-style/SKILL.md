@@ -237,9 +237,8 @@ public enum xxxEnum {
   - `config/.env.*`
   - `.gitignore` 中提到的内容
 - 读取 `.gitignore`。禁止访问和提交 .gitignore 内提到的内容
-- 在满足 `.gitignore` 的前提下，必须使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
 - 如果变更的代码中存在 `todo`，必须提醒用户(哪个文件：哪行代码)，并终止后续提交
-
+- `.gitignore` 不存在, 自行生成
 - 禁止访问任何 `application-*.yml` 文件，但可以访问 `application.yml`
 - 注意，代码中使用的配置项要与 `application.yml` 配置一致, 如 `${xxx}`, `@ConfigurationProperties` 等
 - 如需新增配置项，把配置项加入 `application.yml`, 并引用 `${config.xxx.xxx}`, 新增的`${config.xxx}`无需写在配置文件里，直接在 terminal 日志中打印新增 key 和建议值。
@@ -269,3 +268,4 @@ public enum xxxEnum {
  ```
 - 排版风格必须与当前项目整体一致, 必须逐行对照项目现有排版
 - 输出默认到 `file/output` 目录下, 并加上时间戳
+- 在满足 `.gitignore` 的前提下，必须使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
