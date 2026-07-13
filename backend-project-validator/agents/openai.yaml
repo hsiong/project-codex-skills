@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backend Project Validator"
+  short_description: "Run projects against designs and audit algorithms"
+  default_prompt: "Use $backend-project-validator to run and validate a backend project against its design documents."
