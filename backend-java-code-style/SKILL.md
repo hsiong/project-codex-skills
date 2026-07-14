@@ -268,4 +268,4 @@ public enum xxxEnum {
  ```
 - 排版风格必须与当前项目整体一致, 必须逐行对照项目现有排版
 - 输出默认到 `file/output` 目录下, 并加上时间戳
-- 在满足 `.gitignore` 的前提下，必须使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
+- 在满足 `.gitignore` 的前提下, 每次代码增删改，必须使用 `git add .`、`git add -A`、`git commit -a` 自动添加生成后的代码文件
