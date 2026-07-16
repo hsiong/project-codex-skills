@@ -18,7 +18,7 @@ The elements can be reordered. A performance tool may lead with a benchmark; a v
 
 | Project archetype | Best early proof | Useful early modules | Common failure |
 | --- | --- | --- | --- |
-| Visual product | Hero screenshot or short, focused recording | Value proposition, live demo, key workflows, quick start | Describing UI that visitors still cannot see |
+| Visual product | Hero screenshot, or a short recording when the interaction is the value | Value proposition, live demo, key workflows, quick start | Describing UI that visitors still cannot see |
 | CLI or developer tool | Copyable terminal session and, if central, a reproducible benchmark | Highlights, install, common commands, compatibility | A long architecture preface before the first command |
 | Library or API | Minimal working example with visible result | Install, core concepts, examples, API/docs link | Listing every API without showing the happy path |
 | Model or research | Result visualization, honest benchmark, or architecture figure | News/status, model table, quick inference, training/evaluation, citation, limitations | Claims without datasets, settings, or comparison context |
@@ -50,3 +50,4 @@ Do not imitate their wording, badge count, or section order. Reuse the underlyin
 - Prefer a few verified differentiators over exhaustive feature inventories.
 - Use social proof only when it is attributable and useful to the intended audience.
 - Link to deeper docs instead of turning the README into a complete manual.
+- Keep a static proof frame for recorded workflows so the claim remains understandable without playback.
