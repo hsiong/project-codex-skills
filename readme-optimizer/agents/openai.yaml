@@ -1,4 +1,4 @@
 interface:
   display_name: "README Optimizer"
-  short_description: "Build evidence-led READMEs with verified visual demos"
-  default_prompt: "Use $readme-optimizer to rewrite this repository's README with a strong narrative, quick start, and verified screenshots or short recordings."
+  short_description: "Build bilingual evidence-led READMEs with visual demos"
+  default_prompt: "Use $readme-optimizer to create an English root README and linked Chinese edition with a strong narrative, quick start, and verified visual proof."
