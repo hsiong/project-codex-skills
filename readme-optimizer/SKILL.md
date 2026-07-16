@@ -1,6 +1,6 @@
 ---
 name: readme-optimizer
-description: Create or overhaul repository READMEs as evidence-led GitHub landing pages with project-specific positioning, quick starts, and verified screenshots, short recordings, or diagrams. Use for requests like "rewrite the README," "make this look like a top GitHub project," "add screenshots or a demo GIF," or "show the workflow in the README." Do not use for generic prose polishing, code review, implementation planning, or documentation pages unrelated to a repository README.
+description: Create or overhaul repository READMEs as bilingual, evidence-led GitHub landing pages with project-specific positioning, quick starts, and verified visual proof. Use for requests like "rewrite the README," "make this look like a top GitHub project," "add a Chinese README," or "show the workflow in the README." Do not use for generic prose polishing, code review, implementation planning, or documentation pages unrelated to a repository README.
 ---
 
 # README Optimizer
@@ -47,10 +47,13 @@ After the opening, arrange project-specific modules such as highlights, quick st
 
 Use the repository's audience language. Keep commands copyable, examples concrete, headings scannable, and claims proportional to evidence. Do not turn internal class names, file inventories, or every implemented feature into the story.
 
-### 5. Implement and verify
+### 5. Publish and verify both editions
 
-- Update the README and every asset or local link changed by the new narrative. Keep localized README variants consistent when the repository treats them as maintained equivalents; otherwise state which variants now need translation.
-- Run the documented quick start or the smallest safe validation that verifies it. Check image paths, anchor links, code fences, alt text, dark/light rendering where relevant, and GitHub-compatible markup.
+- Write the root `README.md` in English and a complete Simplified Chinese edition at `docs/zh-CN/README-cn.md`; do not reduce the Chinese edition to a summary.
+- Put `English | [简体中文](docs/zh-CN/README-cn.md)` near the top of the English edition and `[English](../../README.md) | 简体中文` in the corresponding position of the Chinese edition.
+- Keep their section order, claims, commands, warnings, status labels, and visuals equivalent. Translate reader-facing prose, alt text, and captions naturally; preserve code, identifiers, filenames, environment variables, package names, and URLs.
+- Resolve every local link, image, recording, and anchor from each file's location. Update both editions whenever the narrative or evidence changes.
+- Run the documented quick start or the smallest safe validation that verifies it. Render both files and check their paths, code fences, dark/light presentation where relevant, and GitHub-compatible markup.
 - Play every recording from the committed or hosted target, verify that it shows only the intended flow, and confirm that its poster or static fallback communicates the same outcome without motion.
 - Review the rendered reading order and `git diff`. Remove duplicated claims, decorative clutter, stale instructions, and sections that delay the first useful action.
-- Finish with a concise summary of the narrative, created or reused visuals, checks run, and any claim or visual that could not be verified.
+- Finish with a concise summary of both editions, created or reused visuals, checks run, and any claim or visual that could not be verified.
