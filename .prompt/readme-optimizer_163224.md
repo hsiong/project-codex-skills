@@ -1,0 +1,1 @@
+readme-optimizer 完全没有意义   这完全就不是高星github项目的readme  比如 xxx xxx  xxx  xxx  xxx  xxx  ...........等等  完全都不是这个思路   所以请你根据以上以及其他20kstar以上的高星项目的 readme, 重写 readme-optimizer skill . 不限于文字, 要通过这个skill自动完成文案+截图的文图readme skill
