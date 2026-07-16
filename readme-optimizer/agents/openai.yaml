@@ -1,0 +1,4 @@
+interface:
+  display_name: "README Optimizer"
+  short_description: "Build evidence-led README pages with real visuals"
+  default_prompt: "Use $readme-optimizer to rewrite this repository's README with a strong narrative, quick start, and verified screenshots or diagrams."
