@@ -1,58 +1,52 @@
 ---
 name: readme-optimizer
-description: 当用户要求重写 README、优化项目介绍、提炼项目价值或把项目说明写得更像真实作品时触发；从接口、测试用例、脚本、页面、配置和可见行为反推项目链路、能力、设计意图、技术选择与解决的问题，再让每条链路单独按“问题 -> 技术 -> 设计 -> 功能”输出。不要用于代码审查、生成开发方案、普通文案润色或只解释某段代码。常见说法：“重写 README”“按实际业务重写”“体现项目价值”“把项目介绍写实一点”。
+description: Create or overhaul repository README files as high-signal GitHub landing pages, including evidence-based positioning, project-specific information architecture, quick-start content, and real screenshots or diagrams. Use for requests like "rewrite the README," "make this look like a top GitHub project," "add screenshots to the README," or "show the project's value." Do not use for generic prose polishing, code review, implementation planning, or documentation pages unrelated to a repository README.
 ---
 
-# README 逆向提炼专家
+# README Optimizer
 
-## 核心思路
-README 不是源码说明书，也不是空泛宣传文案。处理这类任务时，先从项目已经暴露出来的接口、测试用例、脚本、页面、配置、示例和主要入口反推：
+Turn a repository's real product experience into a README that helps a new visitor understand it, trust it, and try it quickly. Treat the README as a decision page, not a source-code report or a fixed essay template.
 
-1. 项目实际实现了什么能力。
-2. 为什么需要这些能力。
-3. 为了解决这些问题引入了什么技术、机制或工程设计。
-4. 为什么要这样设计，而不是简单堆功能。
+## Workflow
 
-最终输出时要反过来写成正向因果链：**为了解决什么问题 -> 引入了什么技术或机制 -> 为什么这样设计 -> 最后实现了什么功能和价值**。
+### 1. Establish the facts
 
-## 链路拆分
-必须先拆分项目链路，再写 README。一个链路通常是从某个入口触发，经过处理机制，最后形成结果或对接外部系统的完整流程，例如：
+- Read the current README, manifests, release metadata, user-facing entry points, CLI help, examples, tests, docs, and runnable demos. Inspect deeper implementation only to verify externally meaningful claims.
+- Preserve applicable license, security, attribution, compatibility, and contribution information.
+- Identify the primary audience, their first desired outcome, the shortest successful path, the project's maturity, and its strongest defensible proof.
+- Build a private evidence map from each proposed claim to code, tests, docs, a reproducible run, or measured data. Remove unsupported superlatives and invented use cases.
 
-- 请求进入后的业务处理链路。
-- 测试用例覆盖的核心场景链路。
-- 批量导入、生成、导出、同步、回调、补偿等任务链路。
-- 页面操作、脚本命令或配置驱动的自动化链路。
-- 外部服务、模型、数据库、文件、消息或第三方系统的集成链路。
+### 2. Choose the story for this project
 
-每条链路都要单独回答，不能把多个链路混成一段泛泛总结。链路之间如果共享同一种技术或机制，也要分别说明它在各自链路中解决的具体问题。
+- Classify the project as a visual product, CLI/developer tool, library/API, model/research project, infrastructure/platform, agent/skill, or a justified hybrid.
+- Read [references/readme-patterns.md](references/readme-patterns.md), then select only the modules that help this project's audience decide or act.
+- Distill one precise promise and three to six differentiators. Lead with user-visible outcomes and proof; explain internals only when they establish trust or clarify a real design advantage.
 
-## 分析方法
-- **先看可见行为**：优先从 API、测试用例、命令脚本、页面交互、示例输入输出、配置项和 README 现状判断项目对外提供什么能力。
-- **用测试反推边界**：测试用例里的场景、断言、异常分支和样例数据，通常代表项目真正关心的业务边界和质量要求。
-- **用接口反推流程**：接口参数、响应结构、批量操作、导入导出、异步任务、鉴权、回调、状态流转等，能反推出项目服务的业务流程。
-- **用实现反推难点**：大量代码、复杂分支、重复兜底、格式兼容、任务编排、外部依赖、缓存、重试、限流、模板化、校验和异常恢复，通常对应真实痛点。
-- **抽象技术选择**：可以提技术栈和机制，例如 Web API、模板导出、结构化校验、异步处理、外部模型调用、配置化、多环境适配；不要把 README 写成类名、方法名和文件名清单。
-- **谨慎归因**：没有证据的价值不要硬编；只能从代码现象推断时，用保守表达。
+### 3. Produce visual proof
 
-## 输出结构
-按项目实际裁剪，但每条链路必须独立使用同一种叙述顺序：
+- Read [references/visual-playbook.md](references/visual-playbook.md) and inventory existing visual assets before creating new ones.
+- For a runnable visual product, launch it with safe demo data and capture the smallest set of real states that proves the core experience. Use an available browser tool or [scripts/capture_readme.py](scripts/capture_readme.py).
+- For a CLI, library, model, or infrastructure project, prefer the visual evidence that best fits the claim: a terminal transcript, rendered result, benchmark chart, architecture diagram, model table, or workflow trace.
+- Never fabricate a product screenshot. Generated artwork may serve as clearly decorative branding, but not as evidence of implemented behavior. If the project cannot be run, reuse verified assets or create a fact-based diagram and report the missing capture rather than disguising it.
+- Store durable assets under the repository's existing documentation convention, or `docs/images/readme/` when none exists. Use descriptive names, useful alt text, and captions that state what the image proves.
 
-1. **解决的问题**：说明业务或使用场景中原本存在的具体麻烦。
-2. **引入的技术或机制**：说明项目为了处理这个问题采用了什么技术路线或工程手段。
-3. **这样设计的原因**：解释为什么这种设计能降低复杂度、提高稳定性、统一规范、减少人工成本或增强可维护性。
-4. **最终实现的功能**：落到用户能感知的能力和结果。
+### 4. Write in decision order
 
-整体 README 可组织为：
-- 项目定位：一句话说清项目做什么、面向谁、交付什么结果。
-- 核心问题：项目主要解决哪些实际问题。
-- 核心链路：每个链路独立按“问题 -> 技术 -> 设计 -> 功能”展开。
-- 难点与价值：提炼投入最多的部分为什么难、价值在哪里。
-- 使用方式：保留必要的安装、配置、启动和接口说明。
+Build the opening viewport from the strongest available elements:
 
-## 写作约束
-- 不直接输出具体类名、方法名、变量名、接口路径、文件名或逐行实现逻辑。
-- 不把接口或测试用例原样搬进 README；它们只作为反推项目能力和设计意图的证据。
-- 不把多个链路合并成一个笼统卖点；每条链路都要有自己的问题、技术、设计原因和功能结果。
-- 不写“赋能、打通、生态、闭环、抓手、底层逻辑”等空泛词，除非项目语境中必须使用。
-- 不把技术栈当价值本身；必须说明它解决了什么问题、为什么适合这个项目。
-- 不夸大未从项目中看到的能力。
+1. Recognizable project name or restrained brand asset.
+2. A one-sentence promise naming the product, audience or task, and meaningful advantage.
+3. A few relevant trust links or badges.
+4. A primary action such as Try, Install, View demo, or Read docs.
+5. Immediate proof: a real screenshot, short terminal session, output example, or benchmark.
+
+After the opening, arrange project-specific modules such as highlights, quick start, examples, performance, architecture, compatibility, configuration, limitations, roadmap/status, support, contributing, citation, and license. Put the first successful run early, move exhaustive reference material into linked docs, and keep each section centered on one reader question.
+
+Use the repository's audience language. Keep commands copyable, examples concrete, headings scannable, and claims proportional to evidence. Do not turn internal class names, file inventories, or every implemented feature into the story.
+
+### 5. Implement and verify
+
+- Update the README and every asset or local link changed by the new narrative. Keep localized README variants consistent when the repository treats them as maintained equivalents; otherwise state which variants now need translation.
+- Run the documented quick start or the smallest safe validation that verifies it. Check image paths, anchor links, code fences, alt text, dark/light rendering where relevant, and GitHub-compatible markup.
+- Review the rendered reading order and `git diff`. Remove duplicated claims, decorative clutter, stale instructions, and sections that delay the first useful action.
+- Finish with a concise summary of the narrative, created or reused visuals, checks run, and any claim or screenshot that could not be verified.
