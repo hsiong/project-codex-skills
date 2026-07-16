@@ -106,4 +106,4 @@ Prefer Mermaid for simple GitHub-native flows and SVG for controlled diagrams. D
 - Write alt text that conveys the demonstrated state, not `screenshot`. Add a short caption when the takeaway is not obvious.
 - Use a `<picture>` element only when separate light and dark assets materially improve readability.
 
-After embedding, open the rendered Markdown or inspect it in a GitHub-compatible preview. Verify local paths, playback or linked-video behavior, dimensions, readability, and layout in both narrow and wide views.
+After embedding, render both `README.md` and `docs/zh-CN/README-cn.md` in a GitHub-compatible preview. Verify each file's local paths, playback or linked-video behavior, dimensions, translated alt text and captions, and layout in both narrow and wide views.
