@@ -7,6 +7,7 @@ Use these patterns as modules, not as a universal table of contents. The best or
 A strong first viewport usually contains:
 
 - Identity: a clear project name and, when useful, a restrained logo or hero.
+- Language: a compact edition switcher near the title without displacing the project's promise.
 - Positioning: one concrete sentence describing what the project enables and why it is distinct.
 - Trust: only relevant status, package, docs, license, community, paper, or demo links.
 - Proof: a product state, terminal result, measurable comparison, or realistic output.
