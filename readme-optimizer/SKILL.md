@@ -27,9 +27,11 @@ Turn a repository's real product experience into a README that helps a new visit
 - Read [references/visual-playbook.md](references/visual-playbook.md) and inventory existing visual assets before creating new ones.
 - Sketch the README's reading order and mark the claims that need visual proof before capturing anything. Choose each asset for a known placement instead of producing a generic gallery up front.
 - For a runnable visual product, launch it with safe demo data and capture the smallest set of real states or interactions that proves the core experience. Use an available browser tool or [scripts/capture_readme.py](scripts/capture_readme.py).
+- Keep a reproducible capture configuration for every committed product screenshot or recording. Include a product-specific ready selector and computed-style checks for the primary surface; never rely on a fixed delay alone.
 - Record a short interaction when the value depends on motion, sequence, direct manipulation, live feedback, or a state transition that screenshots would obscure. Use a screenshot for a stable result and pair every recording with a useful static frame.
 - For a CLI, library, model, or infrastructure project, prefer the visual evidence that best fits the claim: a terminal transcript, rendered result, benchmark chart, architecture diagram, model table, or workflow trace.
 - Never fabricate a product screenshot. Generated artwork may serve as clearly decorative branding, but not as evidence of implemented behavior. If the project cannot be run, reuse verified assets or create a fact-based diagram and report the missing capture rather than disguising it.
+- Inspect every captured bitmap at full resolution and compare it with the live product before embedding it. Treat missing styles, fonts, images, data, or partially rendered states as capture failures even when the capture command exits successfully.
 - Store durable assets under the repository's existing documentation convention, or `docs/images/readme/` when none exists. Use descriptive names, useful alt text, and captions that state what the image proves.
 - Work section by section: draft the claim and its proof slot, acquire the missing asset, then revise the wording to match what the asset actually demonstrates. Do not complete all captures before writing or force final copy around an unverified capture plan.
 
