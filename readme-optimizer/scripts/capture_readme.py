@@ -28,6 +28,15 @@ ACTION_NAMES = {
     "wait_for",
 }
 
+VISUAL_RESOURCE_PROPERTIES = (
+    "background-image",
+    "border-image-source",
+    "content",
+    "list-style-image",
+    "mask-image",
+    "-webkit-mask-image",
+)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -41,6 +50,8 @@ def load_config(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as handle:
         config = json.load(handle)
 
+    if not isinstance(config, dict):
+        raise ValueError("capture config must be a JSON object")
     if not isinstance(config.get("base_url"), str):
         raise ValueError("base_url must be a string")
 
@@ -196,6 +207,238 @@ async def run_actions(page: Any, capture: dict[str, Any]) -> None:
             await page.wait_for_timeout(pause)
 
 
+async def install_routes(page: Any, capture: dict[str, Any]) -> None:
+    """Fulfill deterministic demo requests before the product page loads."""
+    routes = capture.get("routes", [])
+    if not isinstance(routes, list):
+        raise ValueError("routes must be a list")
+
+    for index, route_config in enumerate(routes, start=1):
+        if not isinstance(route_config, dict):
+            raise ValueError(f"route {index} must be an object")
+        url_pattern = route_config.get("url")
+        if not isinstance(url_pattern, str) or not url_pattern.strip():
+            raise ValueError(f"route {index} needs a non-empty url")
+        if "json" in route_config and "body" in route_config:
+            raise ValueError(f"route {index} must use json or body, not both")
+
+        method = route_config.get("method")
+        if method is not None and (not isinstance(method, str) or not method.strip()):
+            raise ValueError(f"route {index} method must be a non-empty string")
+
+        status = positive_int(route_config.get("status", 200), f"route {index} status")
+        if status > 599:
+            raise ValueError(f"route {index} status must not exceed 599")
+
+        headers = route_config.get("headers", {})
+        if not isinstance(headers, dict):
+            raise ValueError(f"route {index} headers must be an object")
+        normalized_headers = {str(key): str(value) for key, value in headers.items()}
+
+        body = route_config.get("body", "")
+        content_type = route_config.get("content_type", "text/plain; charset=utf-8")
+        if "json" in route_config:
+            body = json.dumps(route_config["json"], ensure_ascii=False)
+            content_type = route_config.get(
+                "content_type", "application/json; charset=utf-8"
+            )
+        if not isinstance(body, str):
+            raise ValueError(f"route {index} body must be a string")
+        if not isinstance(content_type, str) or not content_type.strip():
+            raise ValueError(f"route {index} content_type must be a non-empty string")
+
+        async def fulfill_route(
+            route: Any,
+            request: Any,
+            *,
+            expected_method: str | None = method,
+            response_status: int = status,
+            response_headers: dict[str, str] = normalized_headers,
+            response_body: str = body,
+            response_content_type: str = content_type,
+        ) -> None:
+            """Fulfill matching methods and let unrelated requests continue."""
+            if expected_method and request.method.upper() != expected_method.upper():
+                await route.continue_()
+                return
+            await route.fulfill(
+                status=response_status,
+                headers=response_headers,
+                content_type=response_content_type,
+                body=response_body,
+            )
+
+        await page.route(url_pattern, fulfill_route)
+
+
+def optional_bool(value: Any, label: str, *, default: bool) -> bool:
+    """Validate an optional boolean while preserving a documented default."""
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ValueError(f"{label} must be true or false")
+    return value
+
+
+def summarize_urls(urls: list[str], *, limit: int = 5) -> str:
+    """Keep failed-resource diagnostics readable when many URLs are involved."""
+    shown = urls[:limit]
+    suffix = f" (+{len(urls) - limit} more)" if len(urls) > limit else ""
+    return ", ".join(shown) + suffix
+
+
+async def wait_for_visual_assets(page: Any, capture: dict[str, Any]) -> None:
+    """Wait for browser-managed visual resources and reject failed image loads."""
+    timeout = positive_int(capture.get("timeout_ms", 30_000), "timeout_ms")
+
+    if optional_bool(
+        capture.get("wait_for_network_idle"),
+        "wait_for_network_idle",
+        default=True,
+    ):
+        await page.wait_for_load_state("networkidle", timeout=timeout)
+
+    if optional_bool(
+        capture.get("wait_for_stylesheets"),
+        "wait_for_stylesheets",
+        default=True,
+    ):
+        await page.wait_for_function(
+            """() => Array.from(document.querySelectorAll('link[rel~="stylesheet"]'))
+                .every(link => Boolean(link.sheet))""",
+            timeout=timeout,
+        )
+
+    if optional_bool(capture.get("wait_for_fonts"), "wait_for_fonts", default=True):
+        await page.wait_for_function(
+            "() => !document.fonts || document.fonts.status === 'loaded'",
+            timeout=timeout,
+        )
+
+    if optional_bool(capture.get("wait_for_images"), "wait_for_images", default=True):
+        await page.wait_for_function(
+            "() => Array.from(document.images).every(image => image.complete)",
+            timeout=timeout,
+        )
+        failed_images = await page.evaluate(
+            """() => Array.from(document.images)
+                .filter(image => image.naturalWidth === 0)
+                .map(image => image.currentSrc || image.src || '<missing src>')"""
+        )
+        if failed_images:
+            raise RuntimeError(
+                "visual verification failed; DOM images did not load: "
+                f"{summarize_urls(failed_images)}"
+            )
+
+    if optional_bool(
+        capture.get("wait_for_background_images"),
+        "wait_for_background_images",
+        default=True,
+    ):
+        # CSS image URLs are not represented by document.images, so inspect the
+        # rendered styles for elements and pseudo-elements separately.
+        resource_urls = await page.evaluate(
+            """properties => {
+                const urls = new Set();
+                const collect = style => {
+                    for (const property of properties) {
+                        const value = style.getPropertyValue(property);
+                        const pattern = /url\\(\\s*(?:\"([^\"]*)\"|'([^']*)'|([^)]*?))\\s*\\)/g;
+                        for (const match of value.matchAll(pattern)) {
+                            const raw = (match[1] || match[2] || match[3] || '').trim();
+                            if (raw) urls.add(new URL(raw, document.baseURI).href);
+                        }
+                    }
+                };
+                for (const element of document.querySelectorAll('*')) {
+                    collect(getComputedStyle(element));
+                    collect(getComputedStyle(element, '::before'));
+                    collect(getComputedStyle(element, '::after'));
+                }
+                return Array.from(urls);
+            }""",
+            VISUAL_RESOURCE_PROPERTIES,
+        )
+        failed_backgrounds = await page.evaluate(
+            """urls => Promise.all(urls.map(url => new Promise(resolve => {
+                const image = new Image();
+                const finish = ok => resolve(ok ? null : url);
+                image.onload = () => finish(image.naturalWidth > 0);
+                image.onerror = () => finish(false);
+                image.src = url;
+                if (image.complete) finish(image.naturalWidth > 0);
+            }))).then(results => results.filter(Boolean))""",
+            resource_urls,
+        )
+        if failed_backgrounds:
+            raise RuntimeError(
+                "visual verification failed; CSS image resources did not load: "
+                f"{summarize_urls(failed_backgrounds)}"
+            )
+
+    await page.evaluate(
+        "() => new Promise(resolve => requestAnimationFrame(() => "
+        "requestAnimationFrame(resolve)))"
+    )
+
+
+async def run_style_checks(page: Any, capture: dict[str, Any]) -> None:
+    """Assert product-specific computed styles before an asset can be written."""
+    checks = capture.get("style_checks", [])
+    if not isinstance(checks, list):
+        raise ValueError("style_checks must be a list")
+
+    minimum_checks = positive_int(
+        capture.get("minimum_style_checks", 2),
+        "minimum_style_checks",
+        minimum=0,
+    )
+    if len(checks) < minimum_checks:
+        raise ValueError(
+            f"style_checks needs at least {minimum_checks} entries; "
+            "set minimum_style_checks explicitly only for a surface without "
+            "meaningful computed CSS"
+        )
+
+    timeout = positive_int(capture.get("timeout_ms", 30_000), "timeout_ms")
+    for index, check in enumerate(checks, start=1):
+        if not isinstance(check, dict):
+            raise ValueError(f"style check {index} must be an object")
+        selector = require_selector(check)
+        property_name = check.get("property")
+        if not isinstance(property_name, str) or not property_name.strip():
+            raise ValueError(f"style check {index} needs a non-empty property")
+
+        expectations = [
+            key for key in ("equals", "not_equals", "contains") if key in check
+        ]
+        if len(expectations) != 1:
+            raise ValueError(
+                f"style check {index} needs exactly one of equals, not_equals, or contains"
+            )
+
+        locator = page.locator(selector).first
+        await locator.wait_for(state="attached", timeout=timeout)
+        actual = await locator.evaluate(
+            "(element, propertyName) => "
+            "getComputedStyle(element).getPropertyValue(propertyName).trim()",
+            property_name,
+        )
+        expectation = expectations[0]
+        expected = str(check[expectation])
+        passed = {
+            "equals": actual == expected,
+            "not_equals": actual != expected,
+            "contains": expected in actual,
+        }[expectation]
+        if not passed:
+            raise RuntimeError(
+                f"style check {index} failed for {selector} ({property_name}): "
+                f"expected {expectation} {expected!r}, got {actual!r}"
+            )
+
+
 async def prepare_page(page: Any, capture: dict[str, Any], base_url: str) -> None:
     target = capture.get("url") or urljoin(
         base_url, str(capture.get("path", "/")).lstrip("/")
@@ -229,6 +472,8 @@ async def prepare_page(page: Any, capture: dict[str, Any], base_url: str) -> Non
         )
 
     await run_actions(page, capture)
+    await wait_for_visual_assets(page, capture)
+    await run_style_checks(page, capture)
 
     tail_ms = positive_int(
         capture.get("tail_ms", 400 if capture["kind"] == "recording" else 0),
@@ -324,6 +569,7 @@ async def capture_screenshot(
     page = await context.new_page()
     destination = output_path(output_dir, capture["name"])
     try:
+        await install_routes(page, capture)
         await prepare_page(page, capture, base_url)
         await take_screenshot(page, destination, capture)
     finally:
@@ -355,6 +601,7 @@ async def capture_recording(
         video = page.video
         succeeded = False
         try:
+            await install_routes(page, capture)
             await prepare_page(page, capture, base_url)
             if poster:
                 await take_screenshot(page, poster, capture, poster=True)
@@ -387,7 +634,7 @@ async def capture(config: dict[str, Any]) -> None:
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Python Playwright is required. In an isolated environment run: "
-            "python -m pip install playwright && "
+            "python -m pip install -r /path/to/readme-optimizer/requirements.txt && "
             "python -m playwright install chromium ffmpeg"
         ) from exc
 
