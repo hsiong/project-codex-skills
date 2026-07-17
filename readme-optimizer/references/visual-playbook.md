@@ -44,7 +44,18 @@ When no browser capture tool is available, create a JSON file and run the bundle
   "defaults": {
     "viewport": {"width": 1440, "height": 900},
     "color_scheme": "dark",
-    "wait_ms": 500
+    "wait_ms": 500,
+    "routes": [
+      {
+        "url": "**/api/demo",
+        "method": "GET",
+        "json": {"items": [{"name": "Safe demo"}]}
+      }
+    ],
+    "style_checks": [
+      {"selector": ".dashboard-grid", "property": "display", "equals": "grid"},
+      {"selector": "[data-ready='true']", "property": "opacity", "equals": "1"}
+    ]
   },
   "captures": [
     {
@@ -79,10 +90,18 @@ When no browser capture tool is available, create a JSON file and run the bundle
 ```
 
 ```bash
+python -m pip install -r /path/to/readme-optimizer/requirements.txt
+python -m playwright install chromium ffmpeg
 python /path/to/readme-optimizer/scripts/capture_readme.py readme-captures.json
 ```
 
-The script accepts `click`, `fill`, `press`, `hover`, `check`, `uncheck`, `select_option`, `drag_to`, `scroll_into_view`, `wait_for`, and timed `wait` actions. Existing configs using `shots` remain valid for screenshots. It requires Python Playwright and a Chromium browser; set a top-level `browser_channel` such as `chrome` to use an installed browser channel. Recordings also need Playwright's FFmpeg component, while GIF generation needs an FFmpeg executable on `PATH`; `gif_options` can control `fps`, `width`, `colors`, `start_ms`, and `duration_ms`. If a dependency is missing, install it in an isolated environment as directed by the error message. Keep the capture config when it gives maintainers a reproducible update path; otherwise remove it after producing the assets.
+The script accepts `click`, `fill`, `press`, `hover`, `check`, `uncheck`, `select_option`, `drag_to`, `scroll_into_view`, `wait_for`, and timed `wait` actions. Use `routes` to fulfill deterministic API responses with safe demo data before navigation; each route needs a Playwright URL pattern plus `json` or `body`, and may specify `method`, `status`, `headers`, and `content_type`. The legacy `shots` field remains supported, but legacy configs must satisfy the current validation gates. Before writing an asset, the script waits for network idle, linked stylesheets, fonts, DOM images, and computed-style image resources; a failed visual resource aborts the capture. Set `wait_for_network_idle`, `wait_for_stylesheets`, `wait_for_fonts`, `wait_for_images`, or `wait_for_background_images` to `false` only when the excluded resource is proven irrelevant to the intended frame.
+
+Add `style_checks` for at least two distinctive computed styles on the primary product surface so a missing or stale stylesheet fails loudly. Each check needs `selector`, `property`, and exactly one of `equals`, `not_equals`, or `contains`. The script enforces two checks by default. Set `minimum_style_checks` lower only for a canvas, WebGL view, or another surface where computed CSS cannot establish visual readiness, and document the alternative verification in the handoff.
+
+The script's Python dependencies are declared in `requirements.txt`; install them in an isolated environment. It also needs a Chromium browser; set a top-level `browser_channel` such as `chrome` to use an installed browser channel. Recordings need Playwright's FFmpeg component, while GIF generation needs an FFmpeg executable on `PATH`; `gif_options` can control `fps`, `width`, `colors`, `start_ms`, and `duration_ms`. Keep the capture config beside the documentation workflow whenever a generated visual is committed, so maintainers can reproduce and revalidate it.
+
+After every capture, inspect the actual bitmap at full resolution with an image-viewing tool before embedding it. Compare the captured state with the live page and verify the intended layout, typography, theme, loaded images, meaningful data, crop, and absence of private information. A successful command or existing PNG is not visual verification. Delete or replace a capture that looks partially styled, blank, stale, or materially different from the running product.
 
 Use a consistent viewport and color scheme across a series. Capture a mobile viewport only when responsive behavior is part of the value. Crop to the meaningful surface, remove setup and idle time from recordings, avoid transient toasts unless they are the proof, and never stage functionality the application does not implement.
 
