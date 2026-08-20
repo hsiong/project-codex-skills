@@ -27,6 +27,7 @@ description: "当用户要生成、补全、修改或评审 Python 代码时触�
 - 同一批业务只能放到 `core` 同一个文件内, API 路由只从一个 core 文件导入方法
 - Avoid passing complex expressions, chained calls, or request getters directly into method parameters. Extract method inputs into clearly named local variables first, then pass those variables to the method. This makes the business meaning of each parameter explicit, improves readability, and makes future validation, logging, debugging, and null checks easier.
 - 禁止使用 `async`/`await`
+- 如需 main 实现的, 不用单独写main()  而是直接写在if __name__ == "__main__":
 
 ## 包与模块
 项目按服务划分为不同的顶层 package，例如 `etf_assistant`。
