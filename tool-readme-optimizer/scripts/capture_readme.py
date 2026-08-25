@@ -634,7 +634,7 @@ async def capture(config: dict[str, Any]) -> None:
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Python Playwright is required. In an isolated environment run: "
-            "python -m pip install -r /path/to/readme-optimizer/requirements.txt && "
+            "python -m pip install -r /path/to/tool-readme-optimizer/requirements.txt && "
             "python -m playwright install chromium ffmpeg"
         ) from exc
 
