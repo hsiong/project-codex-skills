@@ -1,5 +1,5 @@
 ---
-name: backend-common
+name: code-backend-common
 description: "不自动触发, 由其他skill触发"
 ---
 
