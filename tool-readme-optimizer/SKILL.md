@@ -1,5 +1,5 @@
 ---
-name: readme-optimizer
+name: tool-readme-optimizer
 description: Create or overhaul repository READMEs as bilingual, evidence-led GitHub landing pages with project-specific positioning, quick starts, and verified visual proof. Use for requests like "rewrite the README," "make this look like a top GitHub project," "add a Chinese README," or "show the workflow in the README." Do not use for generic prose polishing, code review, implementation planning, or documentation pages unrelated to a repository README.
 ---
 
