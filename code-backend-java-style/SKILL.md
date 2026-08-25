@@ -1,10 +1,10 @@
 ---
-name: backend-java-code-style
+name: code-backend-java-style
 description: "当用户要生成、补全、修改或评审 Java 后端代码时触发。它按现有项目风格产出最小改动的 Java 代码；不用于前端、运维或与 Java 无关的任务。"
 ---
 
 # Java Code Style
-必须按下面规则生成 Java 代码, 不能遗漏； 必须满足 skill backend-common 中的约定
+必须按下面规则生成 Java 代码, 不能遗漏； 必须满足 skill `code-backend-common` 中的约定
 
 ## 测试代码约定
 - 测试类如需调用 api 接口, 请基于 `ynfy-tool-httpconnect` 实现
