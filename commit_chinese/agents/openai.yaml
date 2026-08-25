@@ -1,7 +1,0 @@
-interface:
-  display_name: "提交拆分助手"
-  short_description: "提交前拦截 TODO 和敏感信息，并按功能拆分中文 Git 提交"
-  default_prompt: "Use $commit_chinese to stop and report TODOs or real sensitive data in candidate files; otherwise split Git-known changes into safe Chinese conventional commits by functional flow and summarize the results."
-
-policy:
-  allow_implicit_invocation: true
