@@ -1,10 +1,10 @@
 ---
-name: backend-python-code-style
+name: code-backend-python-style
 description: "当用户要生成、补全、修改或评审 Python 代码时触发。它按现有项目风格做最小必要改动；不用于前端、纯运维或需要大规模重构的任务。"
 ---
 
 # Python Code Style
-必须按下面规则生成 Python 代码, 不能遗漏； 必须满足 skill backend-common 中的约定
+必须按下面规则生成 Python 代码, 不能遗漏； 必须满足 skill `code-backend-common` 中的约定
 
 ## FastAPI 与接口代码
 - 框架使用 `fastapi`
