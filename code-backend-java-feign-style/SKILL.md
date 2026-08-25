@@ -1,5 +1,5 @@
 ---
-name: backend-java-feign-integration
+name: code-backend-java-feign-style
 description: "当用户要在 Java 项目中按现有 Feign 模式对接接口时触发，例如“接一个 Feign 接口”“补 decoder”“补 interceptor”。它负责基于项目已有 DTO、decoder、interceptor 和 service 规范补齐接入链路；不用于非 Java 场景、普通代码风格调整或整条链路重构。"
 ---
 
@@ -90,5 +90,5 @@ Demo：
 - 不要为了“优雅”重构整条链路，优先最小必要改动。
 - 生成代码时，优先兼容项目现有注解、包结构、命名和异常体系。
 - service 中补充必要注释，重点说明参数转换、异常分支和接口结果判定。
-- 同步参考 `java-code-style` skill，遵循其中的 DTO、注释、分层、校验、`Result` 返回等规范。
+- 同步参考 `code-backend-java-style` skill，遵循其中的 DTO、注释、分层、校验、`Result` 返回等规范。
 
